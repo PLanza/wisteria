@@ -1,3 +1,4 @@
 fn main() {
-    println!("Hello, world!");
+    wist_lex::testing();
+    println!("Done.");
 }
