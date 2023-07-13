@@ -1,0 +1,32 @@
+ID(string), INT(int), FLOAT(float),
+IF, ELSE, 
+EQ, LT, GT, NE, DARROW
+
+---
+
+delim    : [ \t\n]
+ws       : {delim}+
+nondigit : [A-Za-z_]
+digit    : [0-9]
+hexdigit : [0-9a-fA-F]
+id       : {nondigit}({nondigit}|{digit})*
+dec      : {digit}+(E[+-]?{digit}+)?
+hex      : (0x|0X)({hexdigit}+)
+float    : {digit}+(\.{digit}+)?(E[+-]?{digit}+)?
+
+---
+
+{ws}    => _
+if      => IF
+else    => ELSE
+{id}    => ID
+{dec}   => INT
+{hex}   => INT
+{float} => FLOAT
+==      => EQ
+<       => LT 
+>       => LT 
+!=      => NE 
+=>      => DARROW 
+
+

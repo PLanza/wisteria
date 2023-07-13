@@ -15,7 +15,7 @@ use alloc::{
 };
 
 use crate::{
-    ast::{self, Ast, Position, Span},
+    ast::{self, Ast, Span, Position},
     either::Either,
     is_escapeable_character, is_meta_character,
 };

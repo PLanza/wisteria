@@ -6,3 +6,6 @@ license = "MIT OR Apache-2.0"
 description = "A regular expression parser."
 workspace = ".."
 edition = "2021"
+
+[dependencies]
+wist-utils = {path = "../../wist-utils", version = "0.1.0"}

@@ -1,10 +1,16 @@
-use regex_syntax::Parser;
+mod error;
+
+pub use wist_utils::{Position, Span};
+
+lex_macro::attach_lex_file!("example/test.wilex");
 
 pub fn testing() {
-    let mut parser = Parser::new();
-    let ast = parser.parse("{digit}+(\\.{digit}+)?").unwrap();
-    let mut printer = regex_syntax::ast::print::Printer::new();
-    let mut s = String::new();
-    printer.print(&ast, &mut s).unwrap();
-    println!("{s}");
+    let token = LexToken::ID("Hello".to_string());
 }
+
+// Parse Lexer File:
+//  Use macro to parse file and create enum with tokens
+//
+// Generate Lexer Tokens
+//
+// Parse Code using lexer

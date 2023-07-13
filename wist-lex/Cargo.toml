@@ -8,7 +8,10 @@ edition = "2021"
 [workspace]
 members = [
   "regex-syntax",
+  "lex-macro",
 ]
 
 [dependencies]
 regex-syntax = {path = "./regex-syntax", version = "0.1.*"}
+lex-macro = {path = "./lex-macro", version = "0.1.*"}
+wist-utils = {path = "../wist-utils", version = "0.1.0"}
