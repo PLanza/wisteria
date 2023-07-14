@@ -1,3 +1,4 @@
+mod error;
 mod parse;
 
 use crate::parse::LexParser;

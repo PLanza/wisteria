@@ -1,3 +1,5 @@
+use crate::error::{ParseError, ParseErrorKind};
+
 use std::{
     cell::Cell,
     fs::File,
@@ -5,8 +7,6 @@ use std::{
 };
 
 use wist_utils::{Position, Span};
-
-use quote::quote;
 
 const VALID_TOKEN_TYPES: [&'static str; 5] = ["", "int", "float", "string", "bool"];
 
@@ -19,6 +19,7 @@ enum ParserState {
 
 pub struct LexParser {
     /// The current position of the parser.
+    file_name: String,
     pos: Cell<Position>,
     state: ParserState,
     lines: std::iter::Peekable<io::Lines<BufReader<File>>>,
@@ -28,12 +29,13 @@ pub struct LexParser {
 
 impl LexParser {
     pub fn new(path: String) -> io::Result<Self> {
-        let file = File::open(path)?;
+        let file = File::open(path.clone())?;
         let mut lines = BufReader::new(file).lines().peekable();
         // TODO: Handle Error
         let curr_line = lines.next().unwrap().unwrap();
 
         Ok(LexParser {
+            file_name: path.clone(),
             pos: Cell::new(Position::new(0, 1, 0)),
             state: ParserState::TokenDecs,
             lines,
@@ -178,7 +180,7 @@ impl LexParser {
 
     pub fn parse_token_decs(&mut self) -> proc_macro::TokenStream {
         if !matches!(self.state, ParserState::TokenDecs) {
-            panic!("Token declarations alread parsed")
+            self.panic(ParseErrorKind::TokenDecsParsed)
         }
 
         let mut token_names: Vec<String> = Vec::new();
@@ -198,8 +200,10 @@ impl LexParser {
     }
 
     pub fn parse_regular_defs(&mut self) {
-        if !matches!(self.state, ParserState::RegularDefs) {
-            panic!("Cannot parse regular definitions")
+        if matches!(self.state, ParserState::TokenDecs) {
+            self.panic(ParseErrorKind::TokenDecsNotParsed)
+        } else if matches!(self.state, ParserState::MatchRules) {
+            self.panic(ParseErrorKind::RegularDefsParsed)
         }
 
         let mut def_names: Vec<String> = Vec::new();
@@ -219,7 +223,7 @@ impl LexParser {
 
     pub fn parse_match_rules(&mut self) {
         if !matches!(self.state, ParserState::MatchRules) {
-            panic!("Cannot parse matching rules")
+            self.panic(ParseErrorKind::RegularDefsNotParsed)
         }
 
         let mut regexes: Vec<String> = Vec::new();
@@ -254,35 +258,39 @@ impl LexParser {
         }
 
         let mut tok_type = String::new();
+        let mut type_start = self.pos();
+        let mut type_end = self.pos();
         if self.char() == '(' {
+            let start_pos = self.pos();
             self.bump_and_bump_space();
+            type_start = self.pos();
             while self.char().is_lowercase() {
                 tok_type.push(self.char());
+                type_end = self.pos();
                 self.bump();
             }
             self.bump_space();
 
             if self.char() != ')' {
-                // TODO: ERROR
-                panic!("Unclosed parentheses");
+                self.panic_with_span(
+                    ParseErrorKind::UnclosedParentheses,
+                    Span::new(start_pos, self.pos()),
+                )
             } else {
                 self.bump_and_bump_space();
             }
         }
 
         if self.char() != ',' && !self.parse_end_of_section() {
-            // TODO: ERROR
-            panic!("Expected another item");
+            self.panic(ParseErrorKind::ExpectedComma)
         } else {
             self.bump_and_bump_space();
         }
 
         if !VALID_TOKEN_TYPES.contains(&tok_type.as_str()) {
-            // TODO: ERROR
-            panic!("Invalid type");
-        } else {
-            Some((tok_name, tok_type))
+            self.panic_with_span(ParseErrorKind::InvalidType, Span::new(type_start, type_end))
         }
+        Some((tok_name, tok_type))
     }
 
     fn parse_next_regular_def(&mut self) -> Option<(String, String)> {
@@ -309,7 +317,8 @@ impl LexParser {
 
             Some((def_name, regex))
         } else {
-            panic!("Empty regular definition")
+            self.panic(ParseErrorKind::EmptyRegularDef);
+            None
         }
     }
 
@@ -337,7 +346,7 @@ impl LexParser {
             self.bump();
         }
         if token.is_empty() {
-            panic!("Empty matching token")
+            self.panic(ParseErrorKind::EmptyMatchRule);
         }
         regex = regex.strip_suffix("=>").unwrap().to_string();
 
@@ -360,5 +369,24 @@ impl LexParser {
         }
         self.bump_space();
         true
+    }
+
+    fn panic(&self, kind: ParseErrorKind) {
+        panic!(
+            "{}",
+            ParseError::new(
+                self.file_name.clone(),
+                self.span(),
+                self.curr_line.clone(),
+                kind
+            )
+        )
+    }
+
+    fn panic_with_span(&self, kind: ParseErrorKind, span: Span) {
+        panic!(
+            "{}",
+            ParseError::new(self.file_name.clone(), span, self.curr_line.clone(), kind)
+        )
     }
 }

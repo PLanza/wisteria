@@ -1,11 +1,9 @@
-mod error;
-
 pub use wist_utils::{Position, Span};
 
 lex_macro::attach_lex_file!("example/test.wilex");
 
 pub fn testing() {
-    let token = LexToken::ID("Hello".to_string());
+    let token = LexToken::ID("hello".to_string());
 }
 
 // Parse Lexer File:
