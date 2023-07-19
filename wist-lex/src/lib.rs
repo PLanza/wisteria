@@ -1,3 +1,6 @@
+mod dfa;
+mod regex;
+
 pub use wist_utils::{Position, Span};
 
 lex_macro::attach_lex_file!("example/test.wilex");

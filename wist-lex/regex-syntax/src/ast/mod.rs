@@ -6,7 +6,7 @@ use alloc::{boxed::Box, string::String, vec::Vec};
 
 pub use crate::ast::visitor::{visit, Visitor};
 
-pub use wist_utils::{Span, Position};
+pub use wist_utils::{Position, Span};
 
 pub mod parse;
 pub mod print;
@@ -422,7 +422,7 @@ pub struct RepetitionOp {
 }
 
 /// The kind of a repetition operator.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum RepetitionKind {
     /// `?`
     ZeroOrOne,
@@ -450,7 +450,7 @@ pub struct Group {
 pub struct Definition {
     /// The span of this definition.
     pub span: Span,
-    pub name: String,    
+    pub name: String,
 }
 
 #[cfg(test)]

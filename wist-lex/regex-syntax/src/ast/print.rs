@@ -79,9 +79,7 @@ impl<W: fmt::Write> Visitor for Writer<W> {
     fn visit_pre(&mut self, ast: &Ast) -> fmt::Result {
         match *ast {
             Ast::Group(_) => self.fmt_group_pre(),
-            Ast::Class(ref x) => {
-                self.fmt_class_pre(x)
-            }
+            Ast::Class(ref x) => self.fmt_class_pre(x),
             _ => Ok(()),
         }
     }
@@ -91,9 +89,7 @@ impl<W: fmt::Write> Visitor for Writer<W> {
             Ast::Empty(_) => Ok(()),
             Ast::Literal(ref x) => self.fmt_literal(x),
             Ast::Dot(_) => self.wtr.write_str("."),
-            Ast::Class(ref x) => {
-                self.fmt_class_post(x)
-            }
+            Ast::Class(ref x) => self.fmt_class_post(x),
             Ast::Repetition(ref x) => self.fmt_repetition(x),
             Ast::Group(ref x) => self.fmt_group_post(x),
             Ast::Definition(ref x) => self.fmt_definition(x),
@@ -106,22 +102,14 @@ impl<W: fmt::Write> Visitor for Writer<W> {
         self.wtr.write_str("|")
     }
 
-    fn visit_class_set_pre(
-        &mut self,
-        ast: &ast::ClassSet,
-    ) -> Result<(), Self::Err> {
+    fn visit_class_set_pre(&mut self, ast: &ast::ClassSet) -> Result<(), Self::Err> {
         match *ast {
-            ast::ClassSet::Bracketed(ref x) => {
-                self.fmt_class_pre(x)
-            }
+            ast::ClassSet::Bracketed(ref x) => self.fmt_class_pre(x),
             _ => Ok(()),
         }
     }
 
-    fn visit_class_set_post(
-        &mut self,
-        ast: &ast::ClassSet,
-    ) -> Result<(), Self::Err> {
+    fn visit_class_set_post(&mut self, ast: &ast::ClassSet) -> Result<(), Self::Err> {
         use crate::ast::ClassSet::*;
 
         match *ast {
@@ -139,7 +127,7 @@ impl<W: fmt::Write> Visitor for Writer<W> {
 }
 
 impl<W: fmt::Write> Writer<W> {
-    fn fmt_group_pre(&mut self,) -> fmt::Result {
+    fn fmt_group_pre(&mut self) -> fmt::Result {
         self.wtr.write_str("(")
     }
 
@@ -169,19 +157,12 @@ impl<W: fmt::Write> Writer<W> {
             Verbatim => self.wtr.write_char(ast.c),
             Meta | Superfluous => write!(self.wtr, r"\{}", ast.c),
             Special(ast::SpecialLiteralKind::Tab) => self.wtr.write_str(r"\t"),
-            Special(ast::SpecialLiteralKind::LineFeed) => {
-                self.wtr.write_str(r"\n")
-            }
-            Special(ast::SpecialLiteralKind::CarriageReturn) => {
-                self.wtr.write_str(r"\r")
-            }
+            Special(ast::SpecialLiteralKind::LineFeed) => self.wtr.write_str(r"\n"),
+            Special(ast::SpecialLiteralKind::CarriageReturn) => self.wtr.write_str(r"\r"),
         }
     }
 
-    fn fmt_class_pre(
-        &mut self,
-        ast: &ast::Class,
-    ) -> fmt::Result {
+    fn fmt_class_pre(&mut self, ast: &ast::Class) -> fmt::Result {
         if ast.negated {
             self.wtr.write_str("[^")
         } else {
@@ -189,10 +170,7 @@ impl<W: fmt::Write> Writer<W> {
         }
     }
 
-    fn fmt_class_post(
-        &mut self,
-        _ast: &ast::Class,
-    ) -> fmt::Result {
+    fn fmt_class_post(&mut self, _ast: &ast::Class) -> fmt::Result {
         self.wtr.write_str("]")
     }
 }

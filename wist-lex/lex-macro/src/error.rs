@@ -32,7 +32,7 @@ impl ParseError {
 
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Parse error in lex file {}:", self.file)?;
+        writeln!(f, "Parse error in lex file \"{}\":", self.file)?;
 
         let mut line_str = String::new();
 

@@ -258,18 +258,18 @@ impl LexParser {
         }
 
         let mut tok_type = String::new();
-        let mut type_start = self.pos();
-        let mut type_end = self.pos();
+
         if self.char() == '(' {
             let start_pos = self.pos();
             self.bump_and_bump_space();
-            type_start = self.pos();
+
+            let type_start = self.pos();
             while self.char().is_lowercase() {
                 tok_type.push(self.char());
-                type_end = self.pos();
                 self.bump();
             }
             self.bump_space();
+            let type_end = self.pos();
 
             if self.char() != ')' {
                 self.panic_with_span(
@@ -278,6 +278,12 @@ impl LexParser {
                 )
             } else {
                 self.bump_and_bump_space();
+                if !VALID_TOKEN_TYPES.contains(&tok_type.as_str()) {
+                    self.panic_with_span(
+                        ParseErrorKind::InvalidType,
+                        Span::new(type_start, type_end),
+                    )
+                }
             }
         }
 
@@ -287,9 +293,6 @@ impl LexParser {
             self.bump_and_bump_space();
         }
 
-        if !VALID_TOKEN_TYPES.contains(&tok_type.as_str()) {
-            self.panic_with_span(ParseErrorKind::InvalidType, Span::new(type_start, type_end))
-        }
         Some((tok_name, tok_type))
     }
 
