@@ -16,7 +16,8 @@ pub(crate) enum ParseErrorKind {
     ExpectedComma,
     InvalidType,
     EmptyRegularDef,
-    EmptyMatchRule,
+    MatchRuleMissingKind,
+    InvalidMatchRuleContent,
 }
 
 impl ParseError {
@@ -69,7 +70,8 @@ impl std::fmt::Display for ParseErrorKind {
             ExpectedComma => write!(f, "expected a comma"),
             InvalidType => write!(f, "invalid token type"),
             EmptyRegularDef => write!(f, "regular definition is empty"),
-            EmptyMatchRule => write!(f, "match rule is empty"),
+            MatchRuleMissingKind => write!(f, "match rule is missing the token kind"),
+            InvalidMatchRuleContent => write!(f, "invalid match rule content"),
         }
     }
 }

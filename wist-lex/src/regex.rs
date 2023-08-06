@@ -10,8 +10,8 @@ pub(crate) enum Symbol {
     Char(char),
 }
 
-#[derive(Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Regex {
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Regex {
     Null,
     Set(Set),
     Repetition(Box<Regex>),
@@ -29,6 +29,9 @@ impl Regex {
         // If empty set
         if matches!(left.clone(), Regex::Set(self::Set::Set(inner)) if inner.is_empty()) {
             return right;
+        }
+        if matches!(right.clone(), Regex::Set(self::Set::Set(inner)) if inner.is_empty()) {
+            return left;
         }
 
         if let (Regex::Set(left), Regex::Set(right)) = (left.clone(), right.clone()) {
@@ -87,7 +90,7 @@ impl Regex {
     }
 
     // Needs to create a regex in =-canonical form
-    pub(crate) fn from_ast(ast: Ast, defs: &HashMap<String, Regex>) -> Regex {
+    pub fn from_ast(ast: Ast, defs: &HashMap<String, Regex>) -> Regex {
         match ast {
             Ast::Empty(_) => Regex::Null,
             Ast::Literal(regex_syntax::ast::Literal { c, .. }) => {
@@ -144,7 +147,7 @@ impl Regex {
 
     /// Returns true if the regex is nullable
     /// i.e. if v(regex) = e
-    pub(crate) fn nullable(&self) -> bool {
+    pub fn nullable(&self) -> bool {
         use Regex::*;
         match self {
             Null | Repetition(_) => true,
@@ -162,7 +165,7 @@ impl Regex {
         } else if let Symbol::Null = symbol {
             return self.clone();
         } else {
-            unreachable!()
+            return Regex::Set(self::Set::empty());
         }
 
         use Regex::*;
@@ -201,10 +204,43 @@ impl Regex {
             }
         }
     }
+
+    pub(crate) fn derivative_classes(&self) -> HashSet<Set> {
+        match self {
+            Regex::Null => HashSet::from([Set::dot()]),
+            Regex::Set(set) => match set {
+                Set::Set(inner) => HashSet::from([set.clone(), Set::NegSet(inner.clone())]),
+                Set::NegSet(inner) => HashSet::from([set.clone(), Set::Set(inner.clone())]),
+            },
+            Regex::Repetition(inner) => Self::derivative_classes(inner),
+            Regex::Alternation(left, right) => {
+                let mut result = HashSet::new();
+                for l_set in Self::derivative_classes(left) {
+                    for r_set in Self::derivative_classes(right) {
+                        result.insert(l_set.intersection(&r_set));
+                    }
+                }
+                result
+            }
+            Regex::Concat(left, right) => {
+                if !left.nullable() {
+                    Self::derivative_classes(left)
+                } else {
+                    let mut result = HashSet::new();
+                    for l_set in Self::derivative_classes(left) {
+                        for r_set in Self::derivative_classes(right) {
+                            result.insert(l_set.intersection(&r_set));
+                        }
+                    }
+                    result
+                }
+            }
+        }
+    }
 }
 
-#[derive(Clone, PartialEq, Eq)]
-pub(crate) enum Set {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Set {
     Set(HashSet<char>),
     NegSet(HashSet<char>),
 }
@@ -222,7 +258,7 @@ impl Set {
         let set = match class.kind {
             ClassSet::Literal(regex_syntax::ast::Literal { c, .. }) => Set::Set(HashSet::from([c])),
             ClassSet::Range(ClassSetRange { start, end, .. }) => {
-                Set::Set((start.c..end.c).collect())
+                Set::Set((start.c..=end.c).collect())
             }
             ClassSet::Bracketed(class) => Set::from_class(*class),
             ClassSet::Union(ClassSetUnion { items, .. }) => {
@@ -258,6 +294,36 @@ impl Set {
             (Set(left), NegSet(right)) => NegSet(right.difference(&left).cloned().collect()),
             (NegSet(left), Set(right)) => NegSet(left.difference(&right).cloned().collect()),
             (NegSet(left), NegSet(right)) => NegSet(left.intersection(&right).cloned().collect()),
+        }
+    }
+
+    pub(crate) fn intersection(&self, other: &Self) -> Set {
+        use self::Set::*;
+        match (self, other) {
+            (Set(left), Set(right)) => Set(left.intersection(&right).cloned().collect()),
+            (Set(left), NegSet(right)) => Set(left.difference(&right).cloned().collect()),
+            (NegSet(left), Set(right)) => Set(right.difference(&left).cloned().collect()),
+            (NegSet(left), NegSet(right)) => NegSet(left.union(&right).cloned().collect()),
+        }
+    }
+
+    pub(crate) fn get_symbol(&self) -> Symbol {
+        match self {
+            Set::Set(set) => {
+                if set.is_empty() {
+                    Symbol::Empty
+                } else {
+                    Symbol::Char(*set.iter().next().unwrap())
+                }
+            }
+            // Ascii 27 is the escape control character that should always be available
+            Set::NegSet(_) => Symbol::Char(27u8 as char),
+        }
+    }
+    pub fn contains(&self, c: char) -> bool {
+        match self {
+            Set::Set(set) => set.contains(&c),
+            Set::NegSet(set) => !set.contains(&c),
         }
     }
 }

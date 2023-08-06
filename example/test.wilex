@@ -1,32 +1,29 @@
-ID(string), INT(int), FLOAT(float),
+INT(i32), FLOAT(f64), ID(String), 
 IF, ELSE, 
-EQ, LT, GT, NE, DARROW
+EQ, LT, GT, NE
 
 ---
 
-delim    : [ \t\n]
+delim    : [\ \t\n]
 ws       : {delim}+
 nondigit : [A-Za-z_]
 digit    : [0-9]
 hexdigit : [0-9a-fA-F]
 id       : {nondigit}({nondigit}|{digit})*
-dec      : {digit}+(E[+-]?{digit}+)?
-hex      : (0x|0X)({hexdigit}+)
-float    : {digit}+(\.{digit}+)?(E[+-]?{digit}+)?
+dec      : {digit}+
+hex      : ({hexdigit}+)
+float    : {digit}+(\.{digit}*)?(E[+-]?{digit}+)?
 
 ---
 
-{ws}    => _
-if      => IF
-else    => ELSE
-{id}    => ID
-{dec}   => INT
-{hex}   => INT
-{float} => FLOAT
-==      => EQ
-<       => LT 
->       => LT 
-!=      => NE 
-=>      => DARROW 
-
-
+{ws}         => _
+if           => IF
+else         => ELSE
+{id}         => ID(_lex)
+{dec}        => INT(_lex.parse::<i32>().unwrap())
+(0x|0X){hex} => INT(i32::from_str_radix(&_lex[2..], 16).unwrap())
+{float}      => FLOAT(_lex.parse::<f64>().unwrap())
+==           => EQ
+<            => LT
+>            => GT
+!=           => NE

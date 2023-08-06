@@ -1,0 +1,430 @@
+#![feature(prelude_import)]
+#[prelude_import]
+use std::prelude::rust_2021::*;
+#[macro_use]
+extern crate std;
+pub enum LexTokenKind {
+    _SKIP,
+    INT,
+    FLOAT,
+    ID,
+    IF,
+    ELSE,
+    EQ,
+    LT,
+    GT,
+    NE,
+}
+#[automatically_derived]
+impl ::core::clone::Clone for LexTokenKind {
+    #[inline]
+    fn clone(&self) -> LexTokenKind {
+        *self
+    }
+}
+#[automatically_derived]
+impl ::core::marker::Copy for LexTokenKind {}
+#[automatically_derived]
+impl ::core::marker::StructuralEq for LexTokenKind {}
+#[automatically_derived]
+impl ::core::cmp::Eq for LexTokenKind {
+    #[inline]
+    #[doc(hidden)]
+    #[no_coverage]
+    fn assert_receiver_is_total_eq(&self) -> () {}
+}
+#[automatically_derived]
+impl ::core::marker::StructuralPartialEq for LexTokenKind {}
+#[automatically_derived]
+impl ::core::cmp::PartialEq for LexTokenKind {
+    #[inline]
+    fn eq(&self, other: &LexTokenKind) -> bool {
+        let __self_tag = ::core::intrinsics::discriminant_value(self);
+        let __arg1_tag = ::core::intrinsics::discriminant_value(other);
+        __self_tag == __arg1_tag
+    }
+}
+#[automatically_derived]
+impl ::core::fmt::Debug for LexTokenKind {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        match self {
+            LexTokenKind::_SKIP => ::core::fmt::Formatter::write_str(f, "_SKIP"),
+            LexTokenKind::INT => ::core::fmt::Formatter::write_str(f, "INT"),
+            LexTokenKind::FLOAT => ::core::fmt::Formatter::write_str(f, "FLOAT"),
+            LexTokenKind::ID => ::core::fmt::Formatter::write_str(f, "ID"),
+            LexTokenKind::IF => ::core::fmt::Formatter::write_str(f, "IF"),
+            LexTokenKind::ELSE => ::core::fmt::Formatter::write_str(f, "ELSE"),
+            LexTokenKind::EQ => ::core::fmt::Formatter::write_str(f, "EQ"),
+            LexTokenKind::LT => ::core::fmt::Formatter::write_str(f, "LT"),
+            LexTokenKind::GT => ::core::fmt::Formatter::write_str(f, "GT"),
+            LexTokenKind::NE => ::core::fmt::Formatter::write_str(f, "NE"),
+        }
+    }
+}
+pub enum LexTokenValue {
+    None,
+    I32(i32),
+    F64(f64),
+    String(String),
+}
+#[automatically_derived]
+impl ::core::clone::Clone for LexTokenValue {
+    #[inline]
+    fn clone(&self) -> LexTokenValue {
+        match self {
+            LexTokenValue::None => LexTokenValue::None,
+            LexTokenValue::I32(__self_0) => {
+                LexTokenValue::I32(::core::clone::Clone::clone(__self_0))
+            }
+            LexTokenValue::F64(__self_0) => {
+                LexTokenValue::F64(::core::clone::Clone::clone(__self_0))
+            }
+            LexTokenValue::String(__self_0) => {
+                LexTokenValue::String(::core::clone::Clone::clone(__self_0))
+            }
+        }
+    }
+}
+#[automatically_derived]
+impl ::core::marker::StructuralPartialEq for LexTokenValue {}
+#[automatically_derived]
+impl ::core::cmp::PartialEq for LexTokenValue {
+    #[inline]
+    fn eq(&self, other: &LexTokenValue) -> bool {
+        let __self_tag = ::core::intrinsics::discriminant_value(self);
+        let __arg1_tag = ::core::intrinsics::discriminant_value(other);
+        __self_tag == __arg1_tag
+            && match (self, other) {
+                (LexTokenValue::I32(__self_0), LexTokenValue::I32(__arg1_0)) => {
+                    *__self_0 == *__arg1_0
+                }
+                (LexTokenValue::F64(__self_0), LexTokenValue::F64(__arg1_0)) => {
+                    *__self_0 == *__arg1_0
+                }
+                (LexTokenValue::String(__self_0), LexTokenValue::String(__arg1_0)) => {
+                    *__self_0 == *__arg1_0
+                }
+                _ => true,
+            }
+    }
+}
+#[automatically_derived]
+impl ::core::fmt::Debug for LexTokenValue {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        match self {
+            LexTokenValue::None => ::core::fmt::Formatter::write_str(f, "None"),
+            LexTokenValue::I32(__self_0) => {
+                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "I32", &__self_0)
+            }
+            LexTokenValue::F64(__self_0) => {
+                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "F64", &__self_0)
+            }
+            LexTokenValue::String(__self_0) => {
+                ::core::fmt::Formatter::debug_tuple_field1_finish(f, "String", &__self_0)
+            }
+        }
+    }
+}
+pub struct LexToken {
+    kind: LexTokenKind,
+    val: LexTokenValue,
+}
+#[automatically_derived]
+impl ::core::clone::Clone for LexToken {
+    #[inline]
+    fn clone(&self) -> LexToken {
+        LexToken {
+            kind: ::core::clone::Clone::clone(&self.kind),
+            val: ::core::clone::Clone::clone(&self.val),
+        }
+    }
+}
+#[automatically_derived]
+impl ::core::marker::StructuralPartialEq for LexToken {}
+#[automatically_derived]
+impl ::core::cmp::PartialEq for LexToken {
+    #[inline]
+    fn eq(&self, other: &LexToken) -> bool {
+        self.kind == other.kind && self.val == other.val
+    }
+}
+#[automatically_derived]
+impl ::core::fmt::Debug for LexToken {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        ::core::fmt::Formatter::debug_struct_field2_finish(
+            f,
+            "LexToken",
+            "kind",
+            &&self.kind,
+            "val",
+            &&self.val,
+        )
+    }
+}
+fn __add_fn_to_map(
+    map: &mut ::std::collections::HashMap<
+        wist_lex::regex::Regex,
+        Box<dyn Fn(String) -> LexToken>,
+    >,
+    key: wist_lex::regex::Regex,
+    func: Box<dyn Fn(String) -> LexToken>,
+) {
+    map.insert(key, func);
+}
+pub struct Lexer<const N: usize> {
+    dfa: wist_lex::dfa::DFA<N>,
+    current_state: [wist_lex::regex::Regex; N],
+    input_buffer: String,
+    token_fns: ::std::collections::HashMap<
+        wist_lex::regex::Regex,
+        Box<dyn Fn(String) -> LexToken>,
+    >,
+    emitting_regex: Option<(usize, String)>,
+}
+impl<const N: usize> Lexer<N> {
+    pub fn new() -> Result<Self, wist_lex::Error> {
+        use ::std::collections::{HashSet, HashMap};
+        use wist_lex::regex::{Regex, Set};
+        let regular_defs = <[_]>::into_vec(
+            #[rustc_box]
+            ::alloc::boxed::Box::new([
+                ("delim", "[\\ \\t\\n]"),
+                ("ws", "{delim}+"),
+                ("nondigit", "[A-Za-z_]"),
+                ("digit", "[0-9]"),
+                ("hexdigit", "[0-9a-fA-F]"),
+                ("id", "{nondigit}({nondigit}|{digit})*"),
+                ("dec", "{digit}+"),
+                ("hex", "({hexdigit}+)"),
+                ("float", "{digit}+(\\.{digit}*)?(E[+-]?{digit}+)?"),
+            ]),
+        );
+        let mut parser = wist_lex::RegexParser::new();
+        let mut definitions: HashMap<String, Regex> = HashMap::new();
+        for (name, regex) in regular_defs {
+            definitions
+                .insert(
+                    name.to_string(),
+                    Regex::from_ast(parser.parse(&regex)?, &definitions),
+                );
+            parser.reset();
+        }
+        let match_rules = <[_]>::into_vec(
+            #[rustc_box]
+            ::alloc::boxed::Box::new([
+                "{ws}",
+                "if",
+                "else",
+                "{id}",
+                "{dec}",
+                "(0x|0X){hex}",
+                "{float}",
+                "==",
+                "<",
+                ">",
+                "!=",
+            ]),
+        );
+        let mut regexes: [Regex; N] = (0..N)
+            .map(|_| wist_lex::EMPTY_REGEX.clone())
+            .collect::<Vec<Regex>>()
+            .try_into()
+            .unwrap();
+        for (i, regex) in match_rules.iter().enumerate() {
+            regexes[i] = Regex::from_ast(parser.parse(&regex)?, &definitions);
+            parser.reset();
+        }
+        let token_fns: Vec<Box<dyn Fn(String) -> LexToken>> = <[_]>::into_vec(
+            #[rustc_box]
+            ::alloc::boxed::Box::new([
+                Box::new(|lexeme: String| -> LexToken {
+                    LexToken {
+                        kind: LexTokenKind::_SKIP,
+                        val: LexTokenValue::None,
+                    }
+                }),
+                Box::new(|lexeme: String| -> LexToken {
+                    LexToken {
+                        kind: LexTokenKind::IF,
+                        val: LexTokenValue::None,
+                    }
+                }),
+                Box::new(|lexeme: String| -> LexToken {
+                    LexToken {
+                        kind: LexTokenKind::ELSE,
+                        val: LexTokenValue::None,
+                    }
+                }),
+                Box::new(|lexeme: String| -> LexToken {
+                    LexToken {
+                        kind: LexTokenKind::ID,
+                        val: LexTokenValue::String(lexeme),
+                    }
+                }),
+                Box::new(|lexeme: String| -> LexToken {
+                    LexToken {
+                        kind: LexTokenKind::INT,
+                        val: LexTokenValue::I32(lexeme.parse::<i32>().unwrap()),
+                    }
+                }),
+                Box::new(|lexeme: String| -> LexToken {
+                    LexToken {
+                        kind: LexTokenKind::INT,
+                        val: LexTokenValue::I32(
+                            i32::from_str_radix(&lexeme[2..], 16).unwrap(),
+                        ),
+                    }
+                }),
+                Box::new(|lexeme: String| -> LexToken {
+                    LexToken {
+                        kind: LexTokenKind::FLOAT,
+                        val: LexTokenValue::F64(lexeme.parse::<f64>().unwrap()),
+                    }
+                }),
+                Box::new(|lexeme: String| -> LexToken {
+                    LexToken {
+                        kind: LexTokenKind::EQ,
+                        val: LexTokenValue::None,
+                    }
+                }),
+                Box::new(|lexeme: String| -> LexToken {
+                    LexToken {
+                        kind: LexTokenKind::LT,
+                        val: LexTokenValue::None,
+                    }
+                }),
+                Box::new(|lexeme: String| -> LexToken {
+                    LexToken {
+                        kind: LexTokenKind::GT,
+                        val: LexTokenValue::None,
+                    }
+                }),
+                Box::new(|lexeme: String| -> LexToken {
+                    LexToken {
+                        kind: LexTokenKind::NE,
+                        val: LexTokenValue::None,
+                    }
+                }),
+            ]),
+        );
+        let mut fns_map = HashMap::new();
+        for (regex, func) in regexes.clone().into_iter().zip(token_fns) {
+            __add_fn_to_map(&mut fns_map, regex, func);
+        }
+        let dfa = wist_lex::dfa::DFA::<N>::from_regexes(regexes);
+        Ok(Lexer {
+            emitting_regex: None,
+            input_buffer: "".to_string(),
+            current_state: dfa.start_state.clone(),
+            token_fns: fns_map,
+            dfa,
+        })
+    }
+    fn lex_file(&mut self, path: String) -> ::std::io::Result<Vec<LexToken>> {
+        let file = ::std::fs::File::open(path)?;
+        use ::std::io::prelude::*;
+        let mut lines = ::std::io::BufReader::new(file).lines();
+        let mut output_tokens = Vec::new();
+        for line in lines {
+            let mut chars: Vec<char> = line?.chars().collect();
+            while !chars.is_empty() {
+                let c = chars.remove(0);
+                self.input_buffer.push(c);
+                match self.step(c) {
+                    None => {}
+                    Some(token) => {
+                        if token.kind != LexTokenKind::_SKIP {
+                            output_tokens.push(token);
+                        }
+                        self.current_state = self.dfa.start_state.clone();
+                        let clone = self.emitting_regex.clone();
+                        let truncated = self
+                            .input_buffer[clone.unwrap().1.len()..]
+                            .chars();
+                        for (i, c) in truncated.enumerate() {
+                            chars.insert(i, c);
+                        }
+                        self.emitting_regex = None;
+                        self.input_buffer = String::new();
+                    }
+                }
+            }
+        }
+        let token = self.produce_token();
+        if token.kind != LexTokenKind::_SKIP {
+            output_tokens.push(token);
+        }
+        Ok(output_tokens)
+    }
+    fn step(&mut self, c: char) -> Option<LexToken> {
+        match self.dfa.transitions.get(&self.current_state) {
+            Some(transitions) => {
+                for (set, next_state) in transitions {
+                    if set.contains(c) {
+                        self.current_state = next_state.clone();
+                        self.update_emitting_regex();
+                        return None;
+                    }
+                }
+                ::core::panicking::panic_fmt(
+                    ::core::fmt::Arguments::new_v1(&["missing transition"], &[]),
+                )
+            }
+            None => Some(self.produce_token()),
+        }
+    }
+    fn update_emitting_regex(&mut self) {
+        for (i, regex) in self.current_state.iter().enumerate() {
+            if regex.nullable() {
+                self.emitting_regex = Some((i, self.input_buffer.clone()));
+                break;
+            }
+        }
+    }
+    fn produce_token(&mut self) -> LexToken {
+        let token = match &self.emitting_regex {
+            None => {
+                ::core::panicking::panic_fmt(
+                    ::core::fmt::Arguments::new_v1(&["Need to emit token"], &[]),
+                )
+            }
+            Some((i, value)) => {
+                let matching_regex = &self.dfa.start_state[*i];
+                let token_fn = self
+                    .token_fns
+                    .get(matching_regex)
+                    .unwrap_or_else(|| ::core::panicking::panic_fmt(
+                        ::core::fmt::Arguments::new_v1(
+                            &["Regex has no matching token"],
+                            &[],
+                        ),
+                    ));
+                {
+                    ::std::io::_print(
+                        ::core::fmt::Arguments::new_v1(
+                            &["", "\n"],
+                            &[::core::fmt::ArgumentV1::new_debug(&value)],
+                        ),
+                    );
+                };
+                token_fn(value)
+            }
+        };
+        token
+    }
+}
+fn main() {
+    let mut lexer = Lexer::<11>::new().unwrap();
+    let tokens = lexer.lex_file("example/code.test".to_string()).unwrap();
+    {
+        ::std::io::_print(
+            ::core::fmt::Arguments::new_v1(
+                &["", "\n"],
+                &[::core::fmt::ArgumentV1::new_debug(&tokens)],
+            ),
+        );
+    };
+    {
+        ::std::io::_print(::core::fmt::Arguments::new_v1(&["Done.\n"], &[]));
+    };
+}

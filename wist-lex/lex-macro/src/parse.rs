@@ -8,8 +8,6 @@ use std::{
 
 use wist_utils::{Position, Span};
 
-const VALID_TOKEN_TYPES: [&'static str; 5] = ["", "int", "float", "string", "bool"];
-
 enum ParserState {
     TokenDecs,
     RegularDefs,
@@ -50,20 +48,6 @@ impl LexParser {
     /// pattern string.
     fn offset(&self) -> usize {
         self.pos.get().offset
-    }
-
-    /// Return the current line number of the parser.
-    ///
-    /// The line number starts at `1`.
-    fn line(&self) -> usize {
-        self.pos.get().line
-    }
-
-    /// Return the current column of the parser.
-    ///
-    /// The column number starts at `1` and is reset whenever a `\n` is seen.
-    fn column(&self) -> usize {
-        self.pos.get().column
     }
 
     fn char(&self) -> char {
@@ -131,16 +115,20 @@ impl LexParser {
         !self.is_eof()
     }
 
-    fn bump_space(&mut self) {
+    // Returns true if bumped new line
+    fn bump_space(&mut self) -> bool {
+        let mut result = false;
         while !self.is_eof() {
             if self.curr_line.is_empty() {
                 self.bump();
+                result = true;
             } else if self.char().is_whitespace() {
                 self.bump();
             } else {
                 break;
             }
         }
+        result
     }
 
     /// Returns true if the next call to `bump` would return false.
@@ -164,42 +152,43 @@ impl LexParser {
         Span::splat(self.pos())
     }
 
-    /// Create a span that covers the current character.
-    fn span_char(&self) -> Span {
-        let mut next = Position {
-            offset: self.offset().checked_add(self.char().len_utf8()).unwrap(),
-            line: self.line(),
-            column: self.column().checked_add(1).unwrap(),
-        };
-        if self.char() == '\n' {
-            next.line += 1;
-            next.column = 1;
-        }
-        Span::new(self.pos(), next)
-    }
-
-    pub fn parse_token_decs(&mut self) -> proc_macro::TokenStream {
+    pub fn parse_token_decs(
+        &mut self,
+    ) -> (
+        Vec<syn::Ident>,
+        Vec<Option<syn::Ident>>,
+        Vec<Option<syn::Type>>,
+    ) {
         if !matches!(self.state, ParserState::TokenDecs) {
             self.panic(ParseErrorKind::TokenDecsParsed)
         }
 
-        let mut token_names: Vec<String> = Vec::new();
-        let mut token_types: Vec<String> = Vec::new();
+        let mut tok_names: Vec<String> = Vec::new();
+        let mut tok_ty_variants = Vec::new();
+        let mut tok_tys = Vec::new();
 
         loop {
-            if let Some((tok_name, tok_type)) = self.parse_next_token_dec() {
-                token_names.push(tok_name);
-                token_types.push(tok_type);
+            if let Some((tok_name, tok_ty_variant, tok_type)) = self.parse_next_token_dec() {
+                tok_names.push(tok_name);
+                tok_tys.push(tok_type);
+                tok_ty_variants.push(tok_ty_variant);
             } else {
                 break;
             }
         }
 
         self.state = ParserState::RegularDefs;
-        crate::gen_token_enum(token_names, token_types)
+        (
+            tok_names
+                .iter()
+                .map(|name| syn::parse_str(name).unwrap())
+                .collect(),
+            tok_ty_variants,
+            tok_tys,
+        )
     }
 
-    pub fn parse_regular_defs(&mut self) {
+    pub fn parse_regular_defs(&mut self) -> (Vec<String>, Vec<String>) {
         if matches!(self.state, ParserState::TokenDecs) {
             self.panic(ParseErrorKind::TokenDecsNotParsed)
         } else if matches!(self.state, ParserState::MatchRules) {
@@ -219,29 +208,47 @@ impl LexParser {
         }
 
         self.state = ParserState::MatchRules;
+        (def_names, regexes)
     }
 
-    pub fn parse_match_rules(&mut self) {
+    pub fn parse_match_rules(
+        &mut self,
+    ) -> (
+        Vec<String>,
+        Vec<Option<syn::Ident>>,
+        Vec<Option<proc_macro2::TokenStream>>,
+    ) {
         if !matches!(self.state, ParserState::MatchRules) {
             self.panic(ParseErrorKind::RegularDefsNotParsed)
         }
 
         let mut regexes: Vec<String> = Vec::new();
-        let mut tokens: Vec<String> = Vec::new();
+        let mut token_kinds = Vec::new();
+        let mut token_contents = Vec::new();
 
         loop {
-            if let Some((regex, token)) = self.parse_next_match_rule() {
+            if let Some((regex, token_kind, token_content)) = self.parse_next_match_rule() {
                 regexes.push(regex);
-                tokens.push(token);
+                token_kinds.push(
+                    token_kind.map(|kind| syn::parse_str::<syn::Ident>(kind.as_str()).unwrap()),
+                );
+                use core::str::FromStr;
+                token_contents.push(
+                    token_content.map(|content| {
+                        proc_macro2::TokenStream::from_str(content.as_str()).unwrap()
+                    }),
+                );
             } else {
                 break;
             }
         }
 
         self.state = ParserState::Done;
+
+        (regexes, token_kinds, token_contents)
     }
 
-    fn parse_next_token_dec(&mut self) -> Option<(String, String)> {
+    fn parse_next_token_dec(&mut self) -> Option<(String, Option<syn::Ident>, Option<syn::Type>)> {
         if self.parse_end_of_section() {
             return None;
         }
@@ -264,7 +271,7 @@ impl LexParser {
             self.bump_and_bump_space();
 
             let type_start = self.pos();
-            while self.char().is_lowercase() {
+            while self.char().is_alphanumeric() {
                 tok_type.push(self.char());
                 self.bump();
             }
@@ -278,7 +285,7 @@ impl LexParser {
                 )
             } else {
                 self.bump_and_bump_space();
-                if !VALID_TOKEN_TYPES.contains(&tok_type.as_str()) {
+                if syn::parse_str::<syn::Type>(&tok_type.as_str()).is_err() {
                     self.panic_with_span(
                         ParseErrorKind::InvalidType,
                         Span::new(type_start, type_end),
@@ -287,13 +294,25 @@ impl LexParser {
             }
         }
 
-        if self.char() != ',' && !self.parse_end_of_section() {
-            self.panic(ParseErrorKind::ExpectedComma)
+        if self.char() != ',' {
+            if !self.parse_end_of_section() {
+                self.panic(ParseErrorKind::ExpectedComma)
+            }
         } else {
             self.bump_and_bump_space();
         }
 
-        Some((tok_name, tok_type))
+        if tok_type.is_empty() {
+            return Some((tok_name, None, None));
+        }
+
+        let ty = syn::parse_str::<syn::Type>(&tok_type.as_str()).ok();
+
+        let first_char = tok_type.remove(0);
+        tok_type.insert(0, first_char.to_uppercase().next().unwrap());
+        let tok_type = syn::parse_str::<syn::Ident>(&tok_type).ok();
+
+        Some((tok_name, tok_type, ty))
     }
 
     fn parse_next_regular_def(&mut self) -> Option<(String, String)> {
@@ -325,41 +344,65 @@ impl LexParser {
         }
     }
 
-    fn parse_next_match_rule(&mut self) -> Option<(String, String)> {
+    fn parse_next_match_rule(&mut self) -> Option<(String, Option<String>, Option<String>)> {
         if self.is_eof() {
             return None;
         }
 
         let mut regex = String::new();
-        let mut token = String::new();
+        let mut tok_kind = String::new();
+        let mut tok_content = String::new();
 
-        // 1. Advance until we reach =>
-        // 2. Assume parsed string is the regex
-        // 3. Advance the rest
-        // 4. If we encounter => then add just parsed to regex
-        // 5. Repeat 3-4 until end of line
         while !self.is_end_of_line() {
             if self.bump_if("=>") {
-                regex.push_str(&token);
-                regex.push_str("=>");
-                token = String::new();
-                continue;
+                break;
             }
-            token.push(self.char());
+            regex.push(self.char());
             self.bump();
         }
-        if token.is_empty() {
-            self.panic(ParseErrorKind::EmptyMatchRule);
-        }
-        regex = regex.strip_suffix("=>").unwrap().to_string();
-
-        token.push(self.char());
-        self.bump_and_bump_space();
-
+        self.bump_space();
         regex = regex.trim().to_string();
-        token = token.trim().to_string();
 
-        return Some((regex, token));
+        if self.is_end_of_line() && self.char() == '_' {
+            self.bump_and_bump_space();
+            return Some((regex, None, None));
+        }
+
+        while !self.is_end_of_line() && self.char().is_uppercase() {
+            tok_kind.push(self.char());
+            self.bump();
+        }
+        if self.char().is_uppercase() {
+            tok_kind.push(self.char());
+        }
+
+        if tok_kind.is_empty() {
+            self.panic(ParseErrorKind::MatchRuleMissingKind);
+        }
+        if self.is_end_of_line() {
+            self.bump_and_bump_space();
+            return Some((regex, Some(tok_kind), None));
+        }
+
+        if self.char() == '(' {
+            self.bump();
+
+            let mut open_parens = 1;
+            while self.char() != ')' || open_parens > 1 {
+                if self.char() == '(' {
+                    open_parens += 1;
+                } else if self.char() == ')' {
+                    open_parens -= 1;
+                }
+                tok_content.push(self.char());
+                self.bump();
+            }
+            self.bump_and_bump_space();
+        } else {
+            self.panic(ParseErrorKind::InvalidMatchRuleContent);
+        }
+
+        return Some((regex, Some(tok_kind), Some(tok_content)));
     }
 
     fn parse_end_of_section(&mut self) -> bool {

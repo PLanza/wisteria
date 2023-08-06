@@ -1,60 +1,58 @@
 mod error;
+mod lexer;
 mod parse;
 
 use crate::parse::LexParser;
 
 use quote::quote;
 
-use syn::{parse_macro_input, parse_str};
+use syn::parse_macro_input;
 
 #[proc_macro]
 pub fn attach_lex_file(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let path = parse_macro_input!(input as syn::LitStr);
 
-    let mut parser = LexParser::new(path.value()).unwrap();
-    let token_enum = parser.parse_token_decs();
-    parser.parse_regular_defs();
-    parser.parse_match_rules();
-
-    token_enum
+    let parser = LexParser::new(path.value()).unwrap();
+    self::lexer::include_lexer(parser)
 }
 
-pub(crate) fn gen_token_enum(
-    token_names: Vec<String>,
-    token_types: Vec<String>,
+pub(crate) fn gen_token_enums(
+    token_names: &Vec<syn::Ident>,
+    token_ty_variants: &Vec<Option<syn::Ident>>,
+    token_types: &Vec<Option<syn::Type>>,
 ) -> proc_macro::TokenStream {
-    let token_names: Vec<syn::Ident> = token_names
-        .iter()
-        .map(|name| parse_str(name).unwrap())
-        .collect();
-
-    let token_types: Vec<_> = token_types
-        .iter()
-        .map(|ty| convert_token_type(ty))
-        .collect();
+    let (mut ty_variants, mut tys) = (Vec::new(), Vec::new());
+    for (ty, ty_variant) in token_types.iter().zip(token_ty_variants) {
+        match (ty, ty_variant) {
+            (Some(ty), Some(ty_variant)) => {
+                if !tys.contains(ty) {
+                    tys.push(ty.clone());
+                    ty_variants.push(ty_variant.clone());
+                }
+            }
+            _ => (),
+        }
+    }
 
     quote! {
-        pub enum LexToken {
-            __SKIP, // Patterns that do not match any tokens
-            #(#token_names #token_types),*
+        #[derive(Clone, Copy, Eq, PartialEq, Debug)]
+        pub enum LexTokenKind {
+            _SKIP,
+            #(#token_names),*
+        }
+
+        // Need to generate automatically
+        #[derive(Clone, PartialEq, Debug)]
+        pub enum LexTokenValue {
+            None,
+            #(#ty_variants(#tys)),*
+        }
+
+        #[derive(Clone, PartialEq, Debug)]
+        pub struct LexToken {
+            kind: LexTokenKind,
+            val: LexTokenValue,
         }
     }
     .into()
-}
-
-fn convert_token_type(ty: &String) -> proc_macro2::TokenStream {
-    if ty == "" {
-        quote!()
-    } else if ty == "int" {
-        quote!((i32))
-    } else if ty == "float" {
-        quote!((f32))
-    } else if ty == "bool" {
-        quote!((bool))
-    } else if ty == "string" {
-        quote!((String))
-    } else {
-        // TODO: Handle Error
-        panic!("Illegal type {}", ty);
-    }
 }

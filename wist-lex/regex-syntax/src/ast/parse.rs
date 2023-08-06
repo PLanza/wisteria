@@ -7,15 +7,10 @@ use core::{
     cell::{Cell, RefCell},
 };
 
-use alloc::{
-    boxed::Box,
-    string::ToString,
-    vec,
-    vec::Vec,
-};
+use alloc::{boxed::Box, string::ToString, vec, vec::Vec};
 
 use crate::{
-    ast::{self, Ast, Span, Position},
+    ast::{self, Ast, Position, Span},
     either::Either,
     is_escapeable_character, is_meta_character,
 };
@@ -55,10 +50,7 @@ impl Primitive {
     ///
     /// If this primitive is not a legal item (i.e., an assertion or a dot),
     /// then return an error.
-    fn into_class_set<P: Borrow<Parser>>(
-        self,
-        p: &ParserI<'_, P>,
-    ) -> Result<ast::ClassSet> {
+    fn into_class_set<P: Borrow<Parser>>(self, p: &ParserI<'_, P>) -> Result<ast::ClassSet> {
         use self::Primitive::*;
         use crate::ast::ClassSet;
 
@@ -74,10 +66,7 @@ impl Primitive {
     ///
     /// If this primitive is not a legal item (i.e., a class, assertion or a
     /// dot), then return an error.
-    fn into_class_literal<P: Borrow<Parser>>(
-        self,
-        p: &ParserI<'_, P>,
-    ) -> Result<ast::Literal> {
+    fn into_class_literal<P: Borrow<Parser>>(self, p: &ParserI<'_, P>) -> Result<ast::Literal> {
         use self::Primitive::*;
 
         match self {
@@ -166,7 +155,11 @@ impl Parser {
     /// methods. The parse methods return an abstract syntax tree.
     pub fn new() -> Self {
         Parser {
-            pos: Cell::new(Position { offset: 0, line: 1, column: 1 }),
+            pos: Cell::new(Position {
+                offset: 0,
+                line: 1,
+                column: 1,
+            }),
             stack_group: RefCell::new(vec![]),
             stack_class: RefCell::new(vec![]),
         }
@@ -182,10 +175,14 @@ impl Parser {
     /// This is called at the beginning of every parse. This prevents the
     /// parser from running with inconsistent state (say, if a previous
     /// invocation returned an error and the parser is reused).
-    fn reset(&self) {
+    pub fn reset(&self) {
         // These settings should be in line with the construction
         // in `ParserBuilder::build`.
-        self.pos.set(Position { offset: 0, line: 1, column: 1 });
+        self.pos.set(Position {
+            offset: 0,
+            line: 1,
+            column: 1,
+        });
         self.stack_group.borrow_mut().clear();
         self.stack_class.borrow_mut().clear();
     }
@@ -209,7 +206,11 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
 
     /// Create a new error with the given span and error type.
     fn error(&self, span: Span, kind: ast::ErrorKind) -> ast::Error {
-        ast::Error { kind, pattern: self.pattern().to_string(), span }
+        ast::Error {
+            kind,
+            pattern: self.pattern().to_string(),
+            span,
+        }
     }
 
     /// Return the current offset of the parser.
@@ -258,7 +259,11 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         if self.is_eof() {
             return false;
         }
-        let Position { mut offset, mut line, mut column } = self.pos();
+        let Position {
+            mut offset,
+            mut line,
+            mut column,
+        } = self.pos();
         if self.char() == '\n' {
             line = line.checked_add(1).unwrap();
             column = 1;
@@ -266,7 +271,11 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             column = column.checked_add(1).unwrap();
         }
         offset += self.char().len_utf8();
-        self.parser().pos.set(Position { offset, line, column });
+        self.parser().pos.set(Position {
+            offset,
+            line,
+            column,
+        });
         self.pattern()[self.offset()..].chars().next().is_some()
     }
 
@@ -358,7 +367,10 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         concat.span.end = self.pos();
         self.push_or_add_alternation(concat);
         self.bump();
-        Ok(ast::Concat { span: self.span(), asts: vec![] })
+        Ok(ast::Concat {
+            span: self.span(),
+            asts: vec![],
+        })
     }
 
     /// Pushes or adds the given branch of an alternation to the parser's
@@ -390,14 +402,15 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     #[inline(never)]
     fn push_group(&self, concat: ast::Concat) -> Result<ast::Concat> {
         assert_eq!(self.char(), '(');
-        let group = self.parse_group()?; 
-        self.parser().stack_group.borrow_mut().push(
-            GroupState::Group {
-                concat,
-                group,
-            },
-        );
-        Ok(ast::Concat { span: self.span(), asts: vec![] })
+        let group = self.parse_group()?;
+        self.parser()
+            .stack_group
+            .borrow_mut()
+            .push(GroupState::Group { concat, group });
+        Ok(ast::Concat {
+            span: self.span(),
+            asts: vec![],
+        })
     }
 
     /// Pop a group AST from the parser's internal stack and set the group's
@@ -416,23 +429,15 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         assert_eq!(self.char(), ')');
         let mut stack = self.parser().stack_group.borrow_mut();
         let (mut prior_concat, mut group, alt) = match stack.pop() {
-            Some(Group { concat, group }) => {
-                (concat, group, None)
-            }
+            Some(Group { concat, group }) => (concat, group, None),
             Some(Alternation(alt)) => match stack.pop() {
-                Some(Group { concat, group }) => {
-                    (concat, group, Some(alt))
-                }
+                Some(Group { concat, group }) => (concat, group, Some(alt)),
                 None | Some(Alternation(_)) => {
-                    return Err(self.error(
-                        self.span_char(),
-                        ast::ErrorKind::GroupUnopened,
-                    ));
+                    return Err(self.error(self.span_char(), ast::ErrorKind::GroupUnopened));
                 }
             },
             None => {
-                return Err(self
-                    .error(self.span_char(), ast::ErrorKind::GroupUnopened));
+                return Err(self.error(self.span_char(), ast::ErrorKind::GroupUnopened));
             }
         };
         group_concat.span.end = self.pos();
@@ -470,9 +475,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                 Ok(Ast::Alternation(alt))
             }
             Some(GroupState::Group { group, .. }) => {
-                return Err(
-                    self.error(group.span, ast::ErrorKind::GroupUnclosed)
-                );
+                return Err(self.error(group.span, ast::ErrorKind::GroupUnclosed));
             }
         };
         // If we try to pop again, there should be nothing.
@@ -502,17 +505,14 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     /// is returned. Otherwise, a new union of set items for the class is
     /// returned (which may be populated with either a `]` or a `-`).
     #[inline(never)]
-    fn push_class_open(
-        &self,
-        parent_union: ast::ClassSetUnion,
-    ) -> Result<ast::ClassSetUnion> {
+    fn push_class_open(&self, parent_union: ast::ClassSetUnion) -> Result<ast::ClassSetUnion> {
         assert_eq!(self.char(), '[');
 
         let (nested_set, nested_union) = self.parse_set_class_open()?;
-        self.parser()
-            .stack_class
-            .borrow_mut()
-            .push(ClassState { union: parent_union, set: nested_set });
+        self.parser().stack_class.borrow_mut().push(ClassState {
+            union: parent_union,
+            set: nested_set,
+        });
         Ok(nested_union)
     }
 
@@ -599,12 +599,14 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
 }
 
 impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
-
     /// Parse the regular expression and return an abstract syntax tree
     fn parse(&self) -> Result<Ast> {
         assert_eq!(self.offset(), 0, "parser can only be used once");
         self.parser().reset();
-        let mut concat = ast::Concat { span: self.span(), asts: vec![] };
+        let mut concat = ast::Concat {
+            span: self.span(),
+            asts: vec![],
+        };
         loop {
             self.bump_space();
             if self.is_eof() {
@@ -619,22 +621,16 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                     concat.asts.push(Ast::Class(class));
                 }
                 '?' => {
-                    concat = self.parse_uncounted_repetition(
-                        concat,
-                        ast::RepetitionKind::ZeroOrOne,
-                    )?;
+                    concat =
+                        self.parse_uncounted_repetition(concat, ast::RepetitionKind::ZeroOrOne)?;
                 }
                 '*' => {
-                    concat = self.parse_uncounted_repetition(
-                        concat,
-                        ast::RepetitionKind::ZeroOrMore,
-                    )?;
+                    concat =
+                        self.parse_uncounted_repetition(concat, ast::RepetitionKind::ZeroOrMore)?;
                 }
                 '+' => {
-                    concat = self.parse_uncounted_repetition(
-                        concat,
-                        ast::RepetitionKind::OneOrMore,
-                    )?;
+                    concat =
+                        self.parse_uncounted_repetition(concat, ast::RepetitionKind::OneOrMore)?;
                 }
                 '{' => {
                     concat.asts.push(Ast::Definition(self.parse_definition()?));
@@ -664,24 +660,14 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         mut concat: ast::Concat,
         kind: ast::RepetitionKind,
     ) -> Result<ast::Concat> {
-        assert!(
-            self.char() == '?' || self.char() == '*' || self.char() == '+'
-        );
+        assert!(self.char() == '?' || self.char() == '*' || self.char() == '+');
         let op_start = self.pos();
         let ast = match concat.asts.pop() {
             Some(ast) => ast,
-            None => {
-                return Err(
-                    self.error(self.span(), ast::ErrorKind::RepetitionMissing)
-                )
-            }
+            None => return Err(self.error(self.span(), ast::ErrorKind::RepetitionMissing)),
         };
         match ast {
-            Ast::Empty(_) => {
-                return Err(
-                    self.error(self.span(), ast::ErrorKind::RepetitionMissing)
-                )
-            }
+            Ast::Empty(_) => return Err(self.error(self.span(), ast::ErrorKind::RepetitionMissing)),
             _ => {}
         }
         self.bump();
@@ -696,11 +682,8 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
         Ok(concat)
     }
 
-
     #[inline(never)]
-    fn parse_definition(
-        &self,
-    ) -> Result<ast::Definition> {
+    fn parse_definition(&self) -> Result<ast::Definition> {
         assert!(self.char() == '{');
         let start = self.pos();
         let mut name = String::new();
@@ -710,15 +693,15 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                 return Err(self.error(
                     Span::new(start, self.pos()),
                     ast::ErrorKind::DefinitionUnclosed,
-                ))
+                ));
             }
             match self.char() {
                 '}' => {
                     self.bump();
-                    return Ok(ast::Definition { 
+                    return Ok(ast::Definition {
                         span: Span::new(start, self.pos()),
                         name,
-                    })
+                    });
                 }
                 c => name.push(c),
             }
@@ -837,8 +820,10 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     fn parse_set_class(&self) -> Result<ast::Class> {
         assert_eq!(self.char(), '[');
 
-        let mut union =
-            ast::ClassSetUnion { span: self.span(), items: vec![] };
+        let mut union = ast::ClassSetUnion {
+            span: self.span(),
+            items: vec![],
+        };
         loop {
             self.bump_space();
             if self.is_eof() {
@@ -896,9 +881,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
             end: prim2.into_class_literal(self)?,
         };
         if !range.is_valid() {
-            return Err(
-                self.error(range.span, ast::ErrorKind::ClassRangeInvalid)
-            );
+            return Err(self.error(range.span, ast::ErrorKind::ClassRangeInvalid));
         }
         Ok(ast::ClassSet::Range(range))
     }
@@ -945,32 +928,26 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
     ///
     /// An error is returned if EOF is found.
     #[inline(never)]
-    fn parse_set_class_open(
-        &self,
-    ) -> Result<(ast::Class, ast::ClassSetUnion)> {
+    fn parse_set_class_open(&self) -> Result<(ast::Class, ast::ClassSetUnion)> {
         assert_eq!(self.char(), '[');
         let start = self.pos();
         if !self.bump_and_bump_space() {
-            return Err(self.error(
-                Span::new(start, self.pos()),
-                ast::ErrorKind::ClassUnclosed,
-            ));
+            return Err(self.error(Span::new(start, self.pos()), ast::ErrorKind::ClassUnclosed));
         }
 
         let negated = if self.char() != '^' {
             false
         } else {
             if !self.bump_and_bump_space() {
-                return Err(self.error(
-                    Span::new(start, self.pos()),
-                    ast::ErrorKind::ClassUnclosed,
-                ));
+                return Err(self.error(Span::new(start, self.pos()), ast::ErrorKind::ClassUnclosed));
             }
             true
         };
         // Accept any number of `-` as literal `-`.
-        let mut union =
-            ast::ClassSetUnion { span: self.span(), items: vec![] };
+        let mut union = ast::ClassSetUnion {
+            span: self.span(),
+            items: vec![],
+        };
         while self.char() == '-' {
             union.push(ast::ClassSet::Literal(ast::Literal {
                 span: self.span_char(),
@@ -978,10 +955,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                 c: '-',
             }));
             if !self.bump_and_bump_space() {
-                return Err(self.error(
-                    Span::new(start, start),
-                    ast::ErrorKind::ClassUnclosed,
-                ));
+                return Err(self.error(Span::new(start, start), ast::ErrorKind::ClassUnclosed));
             }
         }
         // If `]` is the *first* char in a set, then interpret it as a literal
@@ -993,10 +967,7 @@ impl<'s, P: Borrow<Parser>> ParserI<'s, P> {
                 c: ']',
             }));
             if !self.bump_and_bump_space() {
-                return Err(self.error(
-                    Span::new(start, self.pos()),
-                    ast::ErrorKind::ClassUnclosed,
-                ));
+                return Err(self.error(Span::new(start, self.pos()), ast::ErrorKind::ClassUnclosed));
             }
         }
         let set = ast::Class {

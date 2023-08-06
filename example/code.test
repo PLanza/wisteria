@@ -1,0 +1,6 @@
+if iffy == 0x5f
+  root_two < 3.14
+else if false
+  2.E-1
+else
+  one_1000 != 10E3

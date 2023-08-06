@@ -1,17 +1,18 @@
-mod dfa;
-mod regex;
+pub mod dfa;
+pub mod regex;
 
-pub use wist_utils::{Position, Span};
+pub use lex_macro::attach_lex_file;
+pub use regex_syntax::ast::Error;
+pub use regex_syntax::Parser as RegexParser;
 
-lex_macro::attach_lex_file!("example/test.wilex");
+use std::collections::HashSet;
 
-pub fn testing() {
-    let token = LexToken::ID("hello".to_string());
+lazy_static::lazy_static! {
+    pub static ref EMPTY_REGEX: regex::Regex = regex::Regex::Set(
+        regex::Set::Set(HashSet::from([]))
+    );
 }
 
-// Parse Lexer File:
-//  Use macro to parse file and create enum with tokens
-//
-// Generate Lexer Tokens
-//
-// Parse Code using lexer
+pub fn testing() {
+    // use regex::{Regex, Set};
+}

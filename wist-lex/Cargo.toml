@@ -12,6 +12,7 @@ members = [
 ]
 
 [dependencies]
+lazy_static = "1.4.0"
 regex-syntax = {path = "./regex-syntax", version = "0.1.*"}
 lex-macro = {path = "./lex-macro", version = "0.1.*"}
 wist-utils = {path = "../wist-utils", version = "0.1.0"}
