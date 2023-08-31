@@ -1,6 +1,9 @@
-if iffy == 0x5f
-  root_two < 3.14
-else if false
-  2.E-1
-else
-  one_1000 != 10E3
+// This is the main function
+int main(int argc, char *argv[]) {
+  if argc == 0 {
+    return 0;
+  } else {
+    printf("Unexpected args\n");
+    return 1;
+  }
+}

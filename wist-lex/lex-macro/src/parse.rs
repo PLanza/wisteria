@@ -2,6 +2,7 @@ use crate::error::{ParseError, ParseErrorKind};
 
 use std::{
     cell::Cell,
+    collections::HashSet,
     fs::File,
     io::{self, prelude::*, BufReader},
 };
@@ -29,8 +30,21 @@ impl LexParser {
     pub fn new(path: String) -> io::Result<Self> {
         let file = File::open(path.clone())?;
         let mut lines = BufReader::new(file).lines().peekable();
-        // TODO: Handle Error
-        let curr_line = lines.next().unwrap().unwrap();
+        let curr_line = lines.next().unwrap_or_else(|| {
+            panic!(
+                "{}",
+                ParseError::new(
+                    path.clone(),
+                    Span::splat(Position {
+                        line: 0,
+                        offset: 0,
+                        column: 0
+                    }),
+                    String::new(),
+                    ParseErrorKind::EmptyFile
+                )
+            )
+        })?;
 
         Ok(LexParser {
             file_name: path.clone(),
@@ -80,7 +94,6 @@ impl LexParser {
             line = line.checked_add(1).unwrap();
             column = 1;
 
-            // TODO: Handle IO Error
             self.curr_line = self.lines.next().unwrap().unwrap();
         } else {
             offset += self.char().len_utf8();
@@ -213,6 +226,7 @@ impl LexParser {
 
     pub fn parse_match_rules(
         &mut self,
+        tok_kinds: HashSet<syn::Ident>,
     ) -> (
         Vec<String>,
         Vec<Option<syn::Ident>>,
@@ -227,11 +241,10 @@ impl LexParser {
         let mut token_contents = Vec::new();
 
         loop {
-            if let Some((regex, token_kind, token_content)) = self.parse_next_match_rule() {
+            if let Some((regex, token_kind, token_content)) = self.parse_next_match_rule(&tok_kinds)
+            {
                 regexes.push(regex);
-                token_kinds.push(
-                    token_kind.map(|kind| syn::parse_str::<syn::Ident>(kind.as_str()).unwrap()),
-                );
+                token_kinds.push(token_kind);
                 use core::str::FromStr;
                 token_contents.push(
                     token_content.map(|content| {
@@ -254,7 +267,7 @@ impl LexParser {
         }
 
         let mut tok_name = String::new();
-        while !self.is_eof() && self.char().is_uppercase() {
+        while !self.is_eof() && (self.char().is_uppercase() || self.char() == '_') {
             tok_name.push(self.char());
             self.bump();
         }
@@ -344,7 +357,10 @@ impl LexParser {
         }
     }
 
-    fn parse_next_match_rule(&mut self) -> Option<(String, Option<String>, Option<String>)> {
+    fn parse_next_match_rule(
+        &mut self,
+        tok_kinds: &HashSet<syn::Ident>,
+    ) -> Option<(String, Option<syn::Ident>, Option<String>)> {
         if self.is_eof() {
             return None;
         }
@@ -368,16 +384,21 @@ impl LexParser {
             return Some((regex, None, None));
         }
 
-        while !self.is_end_of_line() && self.char().is_uppercase() {
+        let start = self.pos();
+        while !self.is_end_of_line() && (self.char().is_uppercase() || self.char() == '_') {
             tok_kind.push(self.char());
             self.bump();
         }
-        if self.char().is_uppercase() {
+        if self.char().is_uppercase() || self.char() == '_' {
             tok_kind.push(self.char());
         }
 
         if tok_kind.is_empty() {
             self.panic(ParseErrorKind::MatchRuleMissingKind);
+        }
+        let tok_kind = syn::parse_str::<syn::Ident>(tok_kind.as_str()).unwrap();
+        if !tok_kinds.contains(&tok_kind) {
+            self.panic_with_span(ParseErrorKind::UndefinedToken, Span::new(start, self.pos()));
         }
         if self.is_end_of_line() {
             self.bump_and_bump_space();

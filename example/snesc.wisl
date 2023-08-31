@@ -1,0 +1,136 @@
+BREAK, CONTINUE, GOTO, RETURN,
+CHAR, INT, FLOAT, DOUBLE, LONG, SHORT,
+SWITCH, CASE, DEFAULT,
+CONST, SIGNED, UNSIGNED, EXTERN, STATIC,
+REGISTER, INLINE, RESTRICT, VOLATILE,
+DO, WHILE, FOR,
+IF, ELSE,
+ENUM, STRUCT, UNION, TYPEDEF,
+SIZEOF, VOID,
+ID(String), INT_C(i32), FLOAT_C(f64), CHAR_C(char), STRING_C(String),
+LBRACKET, RBRACKET, LPAREN, RPAREN, LBRACE, RBRACE,
+DOT, ARROW,
+INCR, DECR,
+AND, OR, XOR,
+STAR, PLUS, MINUS, DIV, MOD, 
+TILDE, EXCLAM,
+LSHIFT, RSHIFT,
+LT, GT, LEQ, GEQ, EQ, NEQ,
+ANDAND, OROR, QUESTION, COLON, SEMI, COMMA, ELIPSES,
+ASSIGN, MULASS, DIVASS, MODASS, PLUSASS, MINASS, LSHASS, RSHASS,
+ANDASS, ORASS, XORASS, 
+
+---
+
+delim    : [\ \t\n]
+ws       : {delim}+
+
+nondigit : [A-Za-z_]
+digit    : [0-9]
+
+id       : {nondigit}({nondigit}|{digit})*
+
+dec      : {digit}+
+bin      : 0|1
+hex      : [0-9a-fA-F]+
+float    : {digit}+\.{digit}*((e|E)[+-]?{digit}+)?
+
+escape   : \\b|\\f|\\n|\\r|\\t|\\v|\\'|\\"|\\\\
+char     : [^'\\\n]|{escape}
+string   : ([^"\\\n]|{escape})+
+
+---
+//[^\n]*\n => _
+
+break    => BREAK
+case     => CASE
+char     => CHAR
+const    => CONST
+continue => CONTINUE
+default  => DEFAULT
+do       => DO 
+double   => DOUBLE
+else     => ELSE 
+enum     => ENUM
+extern   => EXTERN
+float    => FLOAT
+for      => FOR
+goto     => GOTO
+if       => IF
+inline   => INLINE
+int      => INT
+long     => LONG
+register => REGISTER
+return   => RETURN
+short    => SHORT
+signed   => SIGNED
+sizeof   => SIZEOF
+static   => STATIC
+struct   => STRUCT
+switch   => SWITCH
+typedef  => TYPEDEF
+union    => UNION
+unsigned => UNSIGNED
+void     => VOID
+volatile => VOLATILE
+while    => WHILE
+
+{id}         => ID(_lex)
+
+{dec}        => INT_C(_lex.parse::<i32>().unwrap())
+(0b|0B){bin} => INT_C(i32::from_str_radix(&_lex[2..], 2).unwrap())
+(0x|0X){hex} => INT_C(i32::from_str_radix(&_lex[2..], 16).unwrap())
+
+{float}      => FLOAT_C(_lex.parse::<f64>().unwrap())
+
+'{char}'     => CHAR_C(_lex.parse::<char>().unwrap())
+"{string}"   => STRING_C(_lex)
+
+\[   => LBRACKET
+\]   => RBRACKET
+\(   => LPAREN
+\)   => RPAREN
+\{   => LBRACE
+\}   => RBRACE
+\.   => DOT
+->  => ARROW
+\+\+  => INCR
+--  => DECR
+&   => AND
+\|   => OR
+\^   => XOR
+\*   => STAR
+\+   => PLUS
+-   => MINUS
+/   => DIV
+%   => MOD
+~   => TILDE
+!   => EXCLAM
+<<  => LSHIFT
+>>  => RSHIFT
+<   => LT
+>   => GT
+<=  => LEQ
+>=  => GEQ
+==  => EQ
+!=  => NEQ
+&&  => ANDAND
+\|\|  => OROR
+\?   => QUESTION
+:   => COLON
+;   => SEMI
+,   => COMMA
+\.\.\. => ELIPSES
+=   => ASSIGN
+\*=  => MULASS
+/=  => DIVASS
+%=  => MODASS
+\+=  => PLUSASS
+-=  => MINASS
+<<= => LSHASS
+>>= => RSHASS
+&=  => ANDASS
+\|=  => ORASS
+\^=  => XORASS
+
+{ws}   => _

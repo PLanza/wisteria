@@ -12,7 +12,3 @@ lazy_static::lazy_static! {
         regex::Set::Set(HashSet::from([]))
     );
 }
-
-pub fn testing() {
-    // use regex::{Regex, Set};
-}

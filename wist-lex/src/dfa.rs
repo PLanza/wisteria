@@ -11,6 +11,10 @@ pub struct DFA<const N: usize> {
 
 impl<const N: usize> DFA<N> {
     pub fn from_regexes(regexes: [Regex; N]) -> Self {
+        if N == 0 {
+            panic!("DFA cannot be constructed from 0 regular expressions.")
+        }
+
         let mut dfa = DFA {
             start_state: regexes.clone(),
             states: HashSet::new(),

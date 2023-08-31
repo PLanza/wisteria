@@ -6,7 +6,6 @@ use std::collections::{HashMap, HashSet};
 #[derive(Clone, Copy)]
 pub(crate) enum Symbol {
     Empty,
-    Null,
     Char(char),
 }
 
@@ -114,11 +113,7 @@ impl Regex {
                         defs,
                     )
                 } else {
-                    right = Regex::from_ast(
-                        asts.pop()
-                            .unwrap_or_else(|| panic!("Expected two elements from alternation")),
-                        defs,
-                    );
+                    right = Regex::from_ast(asts.pop().unwrap(), defs);
                 }
                 Self::new_alternation(left, right)
             }
@@ -130,23 +125,19 @@ impl Regex {
                     right =
                         Regex::from_ast(regex_syntax::ast::Concat { asts, span }.into_ast(), defs)
                 } else {
-                    right = Regex::from_ast(
-                        asts.pop()
-                            .unwrap_or_else(|| panic!("Expected two elements from concatenation")),
-                        defs,
-                    );
+                    right = Regex::from_ast(asts.pop().unwrap(), defs);
                 }
                 Self::new_concat(left, right)
             }
             Ast::Definition(regex_syntax::ast::Definition { name, .. }) => defs
                 .get(&name)
+                // TODO: Convert to an error
                 .unwrap_or_else(|| panic!("Cannot find defintion {}", name))
                 .clone(),
         }
     }
 
     /// Returns true if the regex is nullable
-    /// i.e. if v(regex) = e
     pub fn nullable(&self) -> bool {
         use Regex::*;
         match self {
@@ -162,8 +153,6 @@ impl Regex {
         let symbol_char;
         if let Symbol::Char(char) = symbol {
             symbol_char = char;
-        } else if let Symbol::Null = symbol {
-            return self.clone();
         } else {
             return Regex::Set(self::Set::empty());
         }
@@ -235,6 +224,33 @@ impl Regex {
                     result
                 }
             }
+        }
+    }
+}
+
+impl std::fmt::Display for Regex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Null => write!(f, "ε"),
+            Self::Set(set) => match set {
+                Set::Set(chars) => {
+                    write!(f, "[")?;
+                    for c in chars {
+                        write!(f, "{}", c)?;
+                    }
+                    write!(f, "]")
+                }
+                Set::NegSet(chars) => {
+                    write!(f, "\\[")?;
+                    for c in chars {
+                        write!(f, "{}", c)?;
+                    }
+                    write!(f, "]")
+                }
+            },
+            Self::Repetition(r) => write!(f, "({})*", *r),
+            Self::Alternation(r1, r2) => write!(f, "{}|{}", *r1, *r2),
+            Self::Concat(r1, r2) => write!(f, "{}{}", *r1, *r2),
         }
     }
 }

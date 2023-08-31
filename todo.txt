@@ -3,3 +3,4 @@ Lexer:
  - Bind matching strings to regular definitions: 
     -> Bind "4c" in "0x4c" to `hex` from regex (0x|0X){hex}
     -> Variables in repetitions instead become lists/iterators
+ - Print errors on failed regex parse

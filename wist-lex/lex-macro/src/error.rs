@@ -8,6 +8,7 @@ pub(crate) struct ParseError {
 }
 
 pub(crate) enum ParseErrorKind {
+    EmptyFile,
     TokenDecsParsed,
     TokenDecsNotParsed,
     RegularDefsParsed,
@@ -18,6 +19,7 @@ pub(crate) enum ParseErrorKind {
     EmptyRegularDef,
     MatchRuleMissingKind,
     InvalidMatchRuleContent,
+    UndefinedToken,
 }
 
 impl ParseError {
@@ -62,6 +64,7 @@ impl std::fmt::Display for ParseErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use self::ParseErrorKind::*;
         match *self {
+            EmptyFile => write!(f, "file is empty"),
             TokenDecsParsed => write!(f, "already parsed token declarations"),
             TokenDecsNotParsed => write!(f, "token declarations not yet parsed"),
             RegularDefsParsed => write!(f, "already parsed regular definitions"),
@@ -72,6 +75,7 @@ impl std::fmt::Display for ParseErrorKind {
             EmptyRegularDef => write!(f, "regular definition is empty"),
             MatchRuleMissingKind => write!(f, "match rule is missing the token kind"),
             InvalidMatchRuleContent => write!(f, "invalid match rule content"),
+            UndefinedToken => write!(f, "token is undefined earlier in this file"),
         }
     }
 }

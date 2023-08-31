@@ -1,11 +1,17 @@
 use quote::quote;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub(crate) fn include_lexer(mut lex_parser: crate::LexParser) -> proc_macro::TokenStream {
     let (token_names, token_ty_variants, token_types) = lex_parser.parse_token_decs();
     let (regex_names, regex_vals) = lex_parser.parse_regular_defs();
-    let (match_regex, ret_tok_kinds, ret_tok_contents) = lex_parser.parse_match_rules();
+    let mut tok_kinds = HashSet::new();
+    for name in &token_names {
+        tok_kinds.insert(name.clone());
+    }
+    let (match_regex, ret_tok_kinds, ret_tok_contents) = lex_parser.parse_match_rules(tok_kinds);
+
+    let n = match_regex.len();
 
     let mut tok_variant_map = HashMap::new();
     for (name, variant) in token_names.iter().zip(&token_ty_variants) {
@@ -33,9 +39,9 @@ pub(crate) fn include_lexer(mut lex_parser: crate::LexParser) -> proc_macro::Tok
             map.insert(key, func);
         }
 
-        pub struct Lexer<const N: usize> {
-            dfa: wist_lex::dfa::DFA<N>,
-            current_state: [wist_lex::regex::Regex; N],
+        pub struct Lexer {
+            dfa: wist_lex::dfa::DFA<#n>,
+            current_state: [wist_lex::regex::Regex; #n],
             input_buffer: String,
             token_fns: ::std::collections::HashMap<
                 wist_lex::regex::Regex,
@@ -44,11 +50,12 @@ pub(crate) fn include_lexer(mut lex_parser: crate::LexParser) -> proc_macro::Tok
             emitting_regex: Option<(usize, String)>,
         }
 
-        impl<const N: usize> Lexer<N> {
+        impl Lexer {
             pub fn new() -> Result<Self, wist_lex::Error> {
                 use ::std::collections::HashMap;
                 use wist_lex::regex::Regex;
 
+                // TODO: Save and load to/from a file
                 let regular_defs = vec![#((#regex_names, #regex_vals)),*];
 
                 let mut parser = wist_lex::RegexParser::new();
@@ -61,8 +68,9 @@ pub(crate) fn include_lexer(mut lex_parser: crate::LexParser) -> proc_macro::Tok
                     parser.reset();
                 }
 
+                // TODO: Save and load to/from a file
                 let match_rules = vec![#(#match_regex),*];
-                let mut regexes: [Regex; N] = (0..N)
+                let mut regexes: [Regex; #n] = (0..#n)
                     .map(|_| wist_lex::EMPTY_REGEX.clone())
                     .collect::<Vec<Regex>>()
                     .try_into()
@@ -72,13 +80,15 @@ pub(crate) fn include_lexer(mut lex_parser: crate::LexParser) -> proc_macro::Tok
                     parser.reset();
                 }
 
-                let token_fns: Vec<Box<dyn Fn(String) -> LexToken>> = vec![#(Box::new(|_lex: String| -> LexToken {#token_fns})),*];
+                let token_fns: Vec<Box<dyn Fn(String) -> LexToken>> = vec![
+                    #(Box::new(|_lex: String| -> LexToken {#token_fns})),*
+                ];
                 let mut fns_map = HashMap::new();
                 for (regex, func) in regexes.clone().into_iter().zip(token_fns) {
                     __add_fn_to_map(&mut fns_map, regex, func);
                 }
 
-                let dfa = wist_lex::dfa::DFA::<N>::from_regexes(regexes);
+                let dfa = wist_lex::dfa::DFA::<#n>::from_regexes(regexes);
                 Ok(Lexer {
                     emitting_regex: None,
                     input_buffer: "".to_string(),
@@ -97,13 +107,14 @@ pub(crate) fn include_lexer(mut lex_parser: crate::LexParser) -> proc_macro::Tok
 
                 for line in lines {
                     let mut chars: Vec<char> = line?.chars().collect();
+                    chars.push('\n');
                     while !chars.is_empty() {
                         let c = chars.remove(0);
                         self.input_buffer.push(c);
                         match self.step(c) {
                             None => (),
                             Some(token) => {
-                                if token.kind != LexTokenKind::_SKIP {
+                                if token.kind != LexTokenTag::_SKIP {
                                     output_tokens.push(token);
                                 }
 
@@ -126,7 +137,7 @@ pub(crate) fn include_lexer(mut lex_parser: crate::LexParser) -> proc_macro::Tok
                 }
 
                 let token = self.produce_token();
-                if token.kind != LexTokenKind::_SKIP {
+                if token.kind != LexTokenTag::_SKIP {
                     output_tokens.push(token);
                 }
 
@@ -190,13 +201,13 @@ fn gen_token_fns(
         match (kind, content) {
             (None, None) => fns.push(quote! {
                 LexToken {
-                    kind: LexTokenKind::_SKIP,
+                    kind: LexTokenTag::_SKIP,
                     val: LexTokenValue::None,
                 }
             }),
             (Some(kind), None) => fns.push(quote! {
                 LexToken {
-                    kind: LexTokenKind::#kind,
+                    kind: LexTokenTag::#kind,
                     val: LexTokenValue::None,
                 }
             }),
@@ -204,7 +215,7 @@ fn gen_token_fns(
                 let variant = tok_variant_map.get(kind).unwrap();
                 fns.push(quote! {
                     LexToken {
-                        kind: LexTokenKind::#kind,
+                        kind: LexTokenTag::#kind,
                         val: LexTokenValue::#variant(#content),
                     }
                 })
