@@ -83,8 +83,8 @@ while    => WHILE
 
 {float}      => FLOAT_C(_lex.parse::<f64>().unwrap())
 
-'{char}'     => CHAR_C(_lex.parse::<char>().unwrap())
-"{string}"   => STRING_C(_lex)
+'{char}'     => CHAR_C(_lex.get(1..2).unwrap().to_string().parse::<char>().unwrap())
+"{string}"   => STRING_C(_lex.get(1..(_lex.len()-1)).unwrap().to_string())
 
 \[   => LBRACKET
 \]   => RBRACKET

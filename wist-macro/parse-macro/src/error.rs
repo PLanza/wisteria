@@ -8,7 +8,18 @@ pub(crate) struct GrammarError {
 }
 
 pub(crate) enum GrammarErrorKind {
+    DefinitionDoesNotExist(String),
+    EmptyDefinitionName,
     EmptyFile,
+    EmptyTokenBindingName,
+    ExpectedReturnType,
+    ExpectedRightAngle,
+    ImproperRuleProduction,
+    InvalidReturnType,
+    MissingRuleProduction,
+    NoStartingParseRule,
+    TokenDoesNotExist(String),
+    UnexpectedCharacter(char),
 }
 
 impl GrammarError {
@@ -52,8 +63,19 @@ impl std::fmt::Display for GrammarError {
 impl std::fmt::Display for GrammarErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use self::GrammarErrorKind::*;
-        match *self {
+        match self {
+            DefinitionDoesNotExist(s) => write!(f, "token \"{}\" does not exist", s),
+            EmptyDefinitionName => write!(f, "definition does not have a name"),
             EmptyFile => write!(f, "file is empty"),
+            EmptyTokenBindingName => write!(f, "token binding does not have a name"),
+            ExpectedReturnType => write!(f, "expected return type"),
+            ExpectedRightAngle => write!(f, "named grammar elements must be singletons"),
+            ImproperRuleProduction => write!(f, "rule production is invalid"),
+            InvalidReturnType => write!(f, "return type is invalid"),
+            MissingRuleProduction => write!(f, "rule production missing, expected '{{'"),
+            NoStartingParseRule => write!(f, "no parse rule is defined as the starting production"),
+            TokenDoesNotExist(s) => write!(f, "token \"{}\" does not exist", s),
+            UnexpectedCharacter(c) => write!(f, "unexpected character '{}'", c),
         }
     }
 }

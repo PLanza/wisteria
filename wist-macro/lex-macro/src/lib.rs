@@ -1,27 +1,16 @@
 mod error;
-mod lexer;
+pub mod lexer;
 mod parse;
 
-use crate::parse::LexParser;
+pub use crate::parse::LexParser;
 
 use quote::quote;
 
-use syn::parse_macro_input;
-
-#[proc_macro]
-pub fn attach_lex_file(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    // TODO: Prevent multiple calls to the macro
-    let path = parse_macro_input!(input as syn::LitStr);
-
-    let parser = LexParser::new(path.value()).unwrap();
-    self::lexer::include_lexer(parser)
-}
-
-pub(crate) fn gen_token_enums(
+pub fn gen_token_enums(
     token_names: &Vec<syn::Ident>,
     token_ty_variants: &Vec<Option<syn::Ident>>,
     token_types: &Vec<Option<syn::Type>>,
-) -> proc_macro::TokenStream {
+) -> proc_macro2::TokenStream {
     let (mut ty_variants, mut tys) = (Vec::new(), Vec::new());
     for (ty, ty_variant) in token_types.iter().zip(token_ty_variants) {
         match (ty, ty_variant) {
@@ -38,7 +27,7 @@ pub(crate) fn gen_token_enums(
     let tok_name_strs: Vec<_> = token_names.iter().map(|id| id.to_string()).collect();
 
     quote! {
-        #[derive(Clone, Copy, Eq, PartialEq, Debug)]
+        #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Debug, Hash)]
         pub enum LexTokenTag {
             _SKIP,
             #(#token_names),*
@@ -52,13 +41,33 @@ pub(crate) fn gen_token_enums(
 
         #[derive(PartialEq, Clone, Debug)]
         pub struct LexToken {
-            kind: LexTokenTag,
-            val: LexTokenValue,
+            pub tag: LexTokenTag,
+            pub val: LexTokenValue,
+        }
+
+        #(
+        impl Into<#tys> for LexTokenValue {
+            fn into(self) -> #tys {
+                match self {
+                    LexTokenValue::#ty_variants(val) => val,
+                    _ => panic!("Invalid Token Value conversion"),
+                }
+            }
+        }
+        )*
+
+        impl Into<()> for LexTokenValue {
+            fn into(self) -> () {
+                match self {
+                    LexTokenValue::None => (),
+                    _ => panic!("Invalid Token Value conversion"),
+                }
+            }
         }
 
         impl std::fmt::Display for LexToken {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let kind_str = match self.kind {
+                let kind_str = match self.tag {
                     LexTokenTag::_SKIP => "",
                     #(LexTokenTag::#token_names => #tok_name_strs),*
                 };

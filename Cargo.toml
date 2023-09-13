@@ -11,6 +11,6 @@ debug = true
 
 [dependencies]
 wist-lex = {path = "./wist-lex", version = "0.1.0"}
-wist-parse = {path = "./wist-parse", version = "0.1.0"}
+wist-macro = {path = "./wist-macro", version = "0.1.0"}
 wist-utils = {path = "./wist-utils", version = "0.1.0"}
 

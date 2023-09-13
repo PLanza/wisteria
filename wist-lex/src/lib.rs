@@ -1,7 +1,6 @@
 pub mod dfa;
 pub mod regex;
 
-pub use lex_macro::attach_lex_file;
 pub use regex_syntax::ast::Error;
 pub use regex_syntax::Parser as RegexParser;
 
