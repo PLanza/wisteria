@@ -14,7 +14,7 @@ pub struct GrammarType {
     guarded: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum GrammarTerm {
     Bot,
     Token(String),
@@ -27,7 +27,7 @@ pub enum GrammarTerm {
     Map(TokenStream, Grammar),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Grammar {
     pub(crate) term: Box<GrammarTerm>,
     pub(crate) ty: GrammarType,
@@ -60,7 +60,10 @@ impl GrammarType {
     }
     fn seq(t1: GrammarType, t2: GrammarType) -> Self {
         if !(Self::apart(t1.clone(), t2.clone())) {
-            panic!("Grammars must be apart to form sequence")
+            panic!(
+                "Grammars must be apart to form sequence:\n  {:?}\n| {:?}",
+                t1, t2
+            )
         }
 
         let follow_union = if t2.null {
@@ -79,7 +82,10 @@ impl GrammarType {
     }
     fn alt(t1: GrammarType, t2: GrammarType) -> Self {
         if !(Self::disjoint(t1.clone(), t2.clone())) {
-            panic!("Grammars must be joint to form alternation")
+            panic!(
+                "Grammars must be joint to form alternation:\n  {:?}\n| {:?}",
+                t1, t2
+            )
         }
         // Assuming t1 is not null
         GrammarType {
@@ -95,9 +101,9 @@ impl GrammarType {
         new_t.follow = t.first.union(&t.follow).cloned().collect();
         new_t
     }
-    fn fix<F>(f: F) -> Self
+    fn fix<F>(mut f: F) -> Self
     where
-        F: Fn(GrammarType) -> GrammarType,
+        F: FnMut(GrammarType) -> GrammarType,
     {
         let mut prev = GrammarType {
             first: HashSet::new(),
@@ -132,9 +138,6 @@ impl Grammar {
         }
     }
     pub fn type_check(&mut self, mut env: HashMap<String, GrammarType>) {
-        if self.ty != GrammarType::bot() {
-            return;
-        }
         use GrammarTerm::*;
         match self.term.as_mut() {
             Bot => self.ty = GrammarType::bot(),
@@ -150,6 +153,7 @@ impl Grammar {
             Alt(g1, g2) => {
                 g1.type_check(env.clone());
                 g2.type_check(env);
+
                 self.ty = GrammarType::alt(g1.ty.clone(), g2.ty.clone());
             }
             Star(g) => {
@@ -158,20 +162,25 @@ impl Grammar {
             }
             Fix(var, g) => {
                 let ty = GrammarType::fix(|ty| {
-                    let (mut g, mut env) = (g.clone(), env.clone());
+                    let mut env = env.clone();
                     env.insert(var.to_string(), ty);
                     g.type_check(env);
-                    g.ty
+                    g.ty.clone()
                 });
                 if !ty.guarded {
-                    panic!("Expected fix point grammar to be guarded")
+                    panic!("Expected fix point grammar to be guarded: {}", var)
                 }
                 env.insert(var.to_string(), ty);
                 g.type_check(env);
                 self.ty = g.ty.clone();
             }
-            Var(s) => self.ty = env.get(s).unwrap().clone(),
-            Def(_, cell) => {
+            Var(s) => {
+                self.ty = env
+                    .get(s)
+                    .unwrap_or_else(|| panic!("Unexpected fix point variable {}", s))
+                    .clone()
+            }
+            Def(_name, cell) => {
                 cell.borrow_mut().type_check(env);
                 self.ty = cell.borrow().ty.clone();
             }
@@ -184,51 +193,56 @@ impl Grammar {
 
     pub fn create_fix_points(
         &mut self,
-        to_replace: &String,
+        mut to_replace: HashSet<String>,
         defs: &HashMap<String, Rc<RefCell<Grammar>>>,
-        mut visited: HashSet<String>,
-    ) -> bool {
+    ) -> HashSet<String> {
         // bool means is modified
         use GrammarTerm::*;
         match self.term.as_mut() {
             Def(def, cell) => {
-                if def == to_replace {
+                if to_replace.contains(def) {
+                    let mut replaced = HashSet::new();
+                    replaced.insert(def.clone());
                     self.term = Box::new(Var(def.clone()));
-                    true
-                } else if visited.contains(def) {
-                    false
+                    replaced
                 } else {
-                    visited.insert(def.clone());
-                    // First replace instances of def
-                    let modified = cell
-                        .borrow_mut()
-                        .create_fix_points(&def, defs, visited.clone());
-                    if modified {
+                    to_replace.insert(def.clone());
+
+                    let replaced = cell.borrow_mut().create_fix_points(to_replace, defs);
+                    if replaced.contains(def) {
                         let inner = cell.borrow().clone();
                         *cell.borrow_mut() = Grammar::new(Fix(def.clone(), inner));
                     }
-
-                    // Then replace instances of to_replace
-                    let modified = cell
-                        .borrow_mut()
-                        .create_fix_points(to_replace, defs, visited);
-                    modified
+                    replaced
                 }
             }
-            Seq(g1, g2) => {
-                let m1 = g1.create_fix_points(to_replace, defs, visited.clone());
-                let m2 = g2.create_fix_points(to_replace, defs, visited);
-                m1 || m2
-            }
-            Alt(g1, g2) => {
-                let m1 = g1.create_fix_points(to_replace, defs, visited.clone());
-                let m2 = g2.create_fix_points(to_replace, defs, visited);
-                m1 || m2
-            }
-            Star(g) => g.create_fix_points(to_replace, defs, visited),
-            Fix(_, g) => g.create_fix_points(to_replace, defs, visited),
-            Map(_, g) => g.create_fix_points(to_replace, defs, visited),
-            _ => false,
+            Seq(g1, g2) => g1
+                .create_fix_points(to_replace.clone(), defs)
+                .union(&g2.create_fix_points(to_replace, defs))
+                .cloned()
+                .collect(),
+            Alt(g1, g2) => g1
+                .create_fix_points(to_replace.clone(), defs)
+                .union(&g2.create_fix_points(to_replace, defs))
+                .cloned()
+                .collect(),
+            Star(g) => g.create_fix_points(to_replace, defs),
+            Fix(_, g) => g.create_fix_points(to_replace, defs),
+            Map(_, g) => g.create_fix_points(to_replace, defs),
+            _ => HashSet::new(),
+        }
+    }
+
+    pub fn order(&self) -> Vec<String> {
+        use GrammarTerm::*;
+        match &*self.term {
+            Seq(g1, g2) => vec![g1.order(), g2.order()].concat(),
+            Alt(g1, g2) => vec![g1.order(), g2.order()].concat(),
+            Star(g) => g.order(),
+            Fix(_, g) => g.order(),
+            Def(name, cell) => vec![vec![name.clone()], cell.borrow().order()].concat(),
+            Map(_, g) => g.order(),
+            _ => Vec::new(),
         }
     }
 

@@ -4,3 +4,13 @@ Lexer:
     -> Bind "4c" in "0x4c" to `hex` from regex (0x|0X){hex}
     -> Variables in repetitions instead become lists/iterators
  - Print errors on failed regex parse
+ - Show were lexing errors occur in the input file
+
+Parser:
+--------
+ - Bindings inside star patterns (e.g. (COMMA <es: expr>)*) should form their own Vec
+ - Include infix operator construct to resolve left associativity issues
+ - Add ? and | operators in BackusNaur form
+ - Improve efficiency
+ - Translate BNF grammars to a more suitable form for a recursive descent parser
+ - Show were parsing errors occur in the input file

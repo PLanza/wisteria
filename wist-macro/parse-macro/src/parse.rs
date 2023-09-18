@@ -62,6 +62,7 @@ impl GrammarParser {
             ),
         };
 
+        println!("Initializing Parser");
         parser.initialize();
         parser.reset();
 
@@ -279,24 +280,29 @@ impl GrammarParser {
     }
 
     pub fn parse_grammar(&mut self) {
+        println!("Parsing Grammar");
         while !self.is_eof() {
             self.parse_grammar_def();
         }
-        if self.start.1.borrow_mut().create_fix_points(
-            &self.start.0,
-            &mut self.defs,
-            HashSet::from([self.start.0.clone()]),
-        ) {
+        println!("Generating Fix Points");
+        if self
+            .start
+            .1
+            .borrow_mut()
+            .create_fix_points(HashSet::from([self.start.0.clone()]), &mut self.defs)
+            .contains(&self.start.0)
+        {
             let inner = self.start.1.borrow().clone();
             *self.start.1.borrow_mut() =
                 Grammar::new(GrammarTerm::Fix(self.start.0.clone(), inner));
         }
 
-        self.start.1.borrow_mut().type_check(HashMap::new());
-
-        for (name, def) in &self.defs {
-            println!("{}: {}\n", name, def.borrow());
+        for (name, grammar) in &self.defs {
+            println!("{}: {}", name, grammar.borrow());
         }
+
+        println!("Checking Grammar");
+        self.start.1.borrow_mut().type_check(HashMap::new());
     }
 
     fn parse_grammar_def(&mut self) {
@@ -396,7 +402,6 @@ impl GrammarParser {
             Grammar::new(GrammarTerm::Map(
                 quote! {
                     |out| Box::new({
-                        use ::std::any::Any;
                         #(#bindings)*
                         #map_fn
                     })
@@ -445,7 +450,7 @@ impl GrammarParser {
     fn parse_backus(&mut self) -> BackusNaur {
         if self.char() == '(' {
             self.bump_and_bump_space();
-            let inner = self.parse_backus();
+            let inner = self.parse_named_backus();
             if self.bump_if(")*") {
                 self.bump_space();
                 BackusNaur::Star(Box::new(inner))
@@ -459,6 +464,7 @@ impl GrammarParser {
                     def.push(self.char());
                     self.bump();
                 }
+                self.bump_space();
                 BackusNaur::Def(def)
             } else if self.char().is_uppercase() {
                 let mut tok = String::new();
@@ -480,11 +486,17 @@ impl GrammarParser {
             Seq(b1, b2) => {
                 let mut v1 = self.get_bindings(
                     b1,
-                    quote!(#value.downcast_ref::<(Box<dyn Any>, Box<dyn Any>)>().unwrap().0),
+                    quote! {
+                        #value.downcast_ref::<(Box<dyn Any>, Box<dyn Any>)>()
+                            .unwrap_or_else(|| panic!("Expected Pair")).0
+                    },
                 );
                 let mut v2 = self.get_bindings(
                     b2,
-                    quote!(#value.downcast_ref::<(Box<dyn Any>, Box<dyn Any>)>().unwrap().1),
+                    quote! {
+                        #value.downcast_ref::<(Box<dyn Any>, Box<dyn Any>)>()
+                            .unwrap_or_else(|| panic!("Expected Pair")).1
+                    },
                 );
                 v1.append(&mut v2);
                 v1
@@ -492,18 +504,24 @@ impl GrammarParser {
             Named(name, b) => {
                 let cast_type = self.get_type_cast(b);
                 let name_ident: syn::Ident = syn::parse_str(name).unwrap();
-                if matches!(**b, Token(..)) {
-                    vec![quote! {
-                        let #name_ident: #cast_type = #value
+                match **b {
+                    Token(..) => vec![quote! {
+                        let mut #name_ident: #cast_type = #value
                             .downcast_ref::<LexTokenValue>()
-                            .unwrap().clone().into();
-                    }]
-                } else {
-                    vec![quote! {
-                        let #name_ident: #cast_type = #value
+                            .unwrap_or_else(|| panic!("Expected Token for {}", #name)).clone().into();
+                    }],
+                    Star(..) => vec![quote! {
+                        let mut #name_ident: &#cast_type = #value
                             .downcast_ref::<#cast_type>()
-                            .unwrap().clone();
-                    }]
+                            .unwrap_or_else(|| panic!("Expected Vec for {}", #name));
+                    }],
+                    _ => vec![quote! {
+                        let mut #name_ident: #cast_type = #value
+                            .downcast_ref::<#cast_type>()
+                            .unwrap_or_else(||
+                                panic!("Expected different type for {}: {:?}", #name, (#value).type_id())
+                            ).clone();
+                    }],
                 }
             }
             _ => Vec::new(),

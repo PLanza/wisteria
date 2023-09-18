@@ -7,7 +7,7 @@ DO, WHILE, FOR,
 IF, ELSE,
 ENUM, STRUCT, UNION, TYPEDEF,
 SIZEOF, VOID,
-ID(String), INT_C(i32), FLOAT_C(f64), CHAR_C(char), STRING_C(String),
+ID(String), INT_C(i32), FLOAT_C(f64), CHAR_C(char), STR_LIT(String),
 LBRACKET, RBRACKET, LPAREN, RPAREN, LBRACE, RBRACE,
 DOT, ARROW,
 INCR, DECR,
@@ -84,7 +84,7 @@ while    => WHILE
 {float}      => FLOAT_C(_lex.parse::<f64>().unwrap())
 
 '{char}'     => CHAR_C(_lex.get(1..2).unwrap().to_string().parse::<char>().unwrap())
-"{string}"   => STRING_C(_lex.get(1..(_lex.len()-1)).unwrap().to_string())
+"{string}"   => STR_LIT(_lex.get(1..(_lex.len()-1)).unwrap().to_string())
 
 \[   => LBRACKET
 \]   => RBRACKET

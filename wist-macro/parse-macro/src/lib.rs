@@ -9,13 +9,22 @@ pub use parse::GrammarParser;
 
 pub fn generate_parser(mut parser: GrammarParser) -> proc_macro2::TokenStream {
     parser.parse_grammar();
-    let (mut names, mut parsers) = (Vec::new(), Vec::new());
-    for (name, grammar) in parser.defs {
-        names.push(name.clone());
-        parsers.push(grammar.borrow().to_parser());
-    }
 
+    // Order needed so that fix point variables are available when needed
     let start = parser.start.0;
+    let mut order = parser.start.1.borrow().order();
+    order.insert(0, start.clone());
+
+    println!("Generating Code");
+    let (mut names, mut parsers) = (Vec::new(), Vec::new());
+    let mut seen = std::collections::HashSet::new();
+    for name in order {
+        if !seen.insert(name.clone()) {
+            continue;
+        }
+        names.push(name.clone());
+        parsers.push(parser.defs.get(&name).unwrap().borrow().to_parser());
+    }
 
     quote! {
         type TokenStream<'a> = ::std::iter::Peekable<::std::slice::Iter<'a, LexToken>>;
@@ -30,6 +39,7 @@ pub fn generate_parser(mut parser: GrammarParser) -> proc_macro2::TokenStream {
                 let output = match s.peek() {
                     None => panic!("Expected token {:?}, reached end of stream", tag),
                     Some(s_tok) => {
+                        println!("{}", s_tok);
                         if tag == s_tok.tag {
                             s_tok.val.clone()
                         } else {
@@ -63,7 +73,7 @@ pub fn generate_parser(mut parser: GrammarParser) -> proc_macro2::TokenStream {
                     } else if ty2.0 {
                         p2(s)
                     } else {
-                        panic!("Unexpected end of stream")
+                        panic!("Unexpected end of stream: {:?}, {:?}", ty1, ty2)
                     }
                 } Some(tok) => {
                     if ty1.1.contains(&tok.tag) {
@@ -75,7 +85,7 @@ pub fn generate_parser(mut parser: GrammarParser) -> proc_macro2::TokenStream {
                     } else if ty2.0 {
                         p2(s)
                     } else {
-                        panic!("Unexpected end of stream")
+                        panic!("No progress possible: saw token {:?}", tok)
                     }
                 }
             }))
@@ -126,26 +136,33 @@ pub fn generate_parser(mut parser: GrammarParser) -> proc_macro2::TokenStream {
 
                 parser.populate_parsers();
 
-                parser.parser = parser.parser_defs.get(#start).unwrap().borrow().clone();
+                parser.parser = parser.parser_defs.get(#start)
+                    .unwrap_or_else(|| panic!("Missing starting grammar: {}", #start)).borrow().clone();
                 parser
             }
 
             fn populate_parsers(&mut self) {
-                #(*self.parser_defs.get(#names).unwrap().borrow_mut() = #parsers;)*
+                use ::std::any::Any;
+                #(*self.parser_defs.get(#names).unwrap_or_else(|| panic!("Grammar {} has not been initialized", #names)).borrow_mut() = #parsers;)*
             }
 
             fn def(
                 &self,
                 name: String,
             ) -> ParserFn {
-                let cell = self.parser_defs.get(&name).unwrap().clone();
+                let cell = self.parser_defs.get(&name)
+                    .unwrap_or_else(|| panic!("Missing grammar {}", name)).clone();
                 ::std::rc::Rc::new(Box::new(move |s| {
                     cell.borrow()(s)
                 }))
             }
 
             pub fn parse(&self, mut stream: TokenStream) -> Box<dyn ::std::any::Any> {
-                (self.parser)(&mut stream)
+                let out = (self.parser)(&mut stream);
+                if stream.next().is_some() {
+                    panic!("Entire file has not been parsed");
+                }
+                out
             }
         }
     }
