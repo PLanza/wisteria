@@ -31,5 +31,21 @@ pub fn attach_wisteria_files(args: proc_macro::TokenStream) -> proc_macro::Token
     let parse_code = parse_macro::generate_parser(grammar_parser);
 
     lex_code.extend(parse_code.into_iter());
+
+    let user_fn_code = quote::quote! {
+        fn lex_and_parse<T: 'static>(file: String) -> Result<T, Box<dyn ::std::any::Any>> {
+            let mut lexer = Lexer::new().unwrap();
+
+            let tokens = lexer.lex_file(file).unwrap();
+            let stream = tokens.iter().peekable();
+
+            let parser = Parser::new();
+            let out = parser.parse(stream);
+            
+            Ok(*out.downcast::<T>()?)
+        }
+    };
+    lex_code.extend(user_fn_code.into_iter());
+
     lex_code.into()
 }

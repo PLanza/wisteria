@@ -67,17 +67,6 @@ pub enum UnaryOp {
 }
 
 #[derive(Debug, Clone)]
-pub enum PostOp {
-    Incr,
-    Decr,
-}
-
-#[derive(Debug, Clone)]
-pub enum TypeName {
-    Int,
-}
-
-#[derive(Debug, Clone)]
 pub enum Ast {
     Ident(String),
     Constant(Constant),
@@ -89,13 +78,6 @@ pub enum Ast {
     BitOp(Box<Ast>, BitOp, Box<Ast>),
     RelatOp(Box<Ast>, RelatOp, Box<Ast>),
     ArithOp(Box<Ast>, ArithOp, Box<Ast>),
-    Cast(TypeName, Box<Ast>),
     UnaryOp(UnaryOp, Box<Ast>),
     SizeOfExpr(Box<Ast>),
-    SizeOfType(TypeName),
-    PostOp(Box<Ast>, PostOp),
-    FnCall(Box<Ast>, Vec<Ast>),
-    Subscript(Box<Ast>, Box<Ast>), // foo[1]
-    StructRef(Box<Ast>, String),   // foo.bar
-    StructDeref(Box<Ast>, String), // foo->bar
 }

@@ -297,10 +297,6 @@ impl GrammarParser {
                 Grammar::new(GrammarTerm::Fix(self.start.0.clone(), inner));
         }
 
-        for (name, grammar) in &self.defs {
-            println!("{}: {}", name, grammar.borrow());
-        }
-
         println!("Checking Grammar");
         self.start.1.borrow_mut().type_check(HashMap::new());
     }

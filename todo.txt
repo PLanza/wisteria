@@ -14,3 +14,4 @@ Parser:
  - Improve efficiency
  - Translate BNF grammars to a more suitable form for a recursive descent parser
  - Show were parsing errors occur in the input file
+ - Move to a build script so that it doesn't recompile every time
